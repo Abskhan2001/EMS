@@ -16,7 +16,7 @@ import { useRef } from 'react';
 import {
   ShieldCheck,
   LogOut,
-  PanelLeftClose,
+  PanelLeftClose,} from "lucide-react";
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -28,6 +28,7 @@ import {
 } from 'date-fns';
 import AbsenteeComponent from './AbsenteesData';
 import { id } from 'date-fns/locale/id';
+import {
   PanelRightClose,
   Coffee
 } from 'lucide-react';
@@ -113,11 +114,11 @@ const AdminPage: React.FC = () => {
   const [breaks, setbreak] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date()); // Default to current date
   const [sideopen, setsideopen] = useState(false);
-  const [permanentopen , setPermanentopen] = useState(true);
+  const [permanentopen, setPermanentopen] = useState(true);
   // console.log("isopen" , isOpen);
-  console.log("permanentopen" , permanentopen);
-  
-  
+  console.log("permanentopen", permanentopen);
+
+
 
 
   useEffect(() => {
@@ -597,14 +598,14 @@ const AdminPage: React.FC = () => {
 
 
   return (
-    
+
     <>
       <div className="min-h-screen bg-gray-100 flex overflow-hidden ">
         <div className='flex flex-col'>
-        <PanelRightClose className={`${permanentopen ? "hidden" : "display-block"} 
+          <PanelRightClose className={`${permanentopen ? "hidden" : "display-block"} 
         box-border-2 border-gray-300 rounded-full  m-2 fixed top-2 left-[-20px] z-40  size-[50px] p-3 text-[#7e26b8] hover:bg-gray-200 shadow-lg cursor-pointer `}
-                  onClick={ () => setPermanentopen(true)} 
-                  />
+            onClick={() => setPermanentopen(true)}
+          />
           <div className="min-h-screen bg-gray-100 flex">
             {/* <motion.div
               className="fixed top-0 left-0 h-full w-64 bb-white text-white shadow-lg p-4 z-20"
@@ -622,10 +623,10 @@ const AdminPage: React.FC = () => {
               }}
             > */}
 
-             <motion.div
+            <motion.div
               className="fixed top-0 left-0 h-full w-64 bb-white text-white shadow-lg p-4 z-20"
               initial={{ x: "-100%" }}
-              animate={{ 
+              animate={{
                 x: permanentopen ? "0%" : "-100%"
               }}
               transition={{ duration: 0.4, ease: "easeInOut" }} // Smooth transition
@@ -637,7 +638,7 @@ const AdminPage: React.FC = () => {
             >
 
 
-            
+
 
               {/* Sidebar Space Filler */}
               {/* <div className="bg-white w-64 p-4 shadow-lg h-full hidden lg:block"></div> */}
@@ -650,23 +651,23 @@ const AdminPage: React.FC = () => {
               </button>
 
               {/* Overlay (Only for Small Screens when Sidebar is Open) */}
-             
+
 
               {/* Sidebar (Fixed) */}
               <div
                 className={`bg-black w-64 p-4 shadow-lg fixed left-0 top-0 bottom-0 transform transition-transform duration-300 ease-in-out
-  ${ permanentopen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 h-screen flex flex-col`}
+  ${permanentopen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 h-screen flex flex-col`}
               >
 
                 {/* Logo */}
                 <div className="mb-8 flex justify-between items-center">
- 
+
                   <h1 className='font-semibold text-[26px]'>Talent Sync</h1>
                   <PanelRightClose className={`${permanentopen ? "hidden" : "display-block"}`}
-                  onClick={ () => setPermanentopen(true)} 
+                    onClick={() => setPermanentopen(true)}
                   />
                   <PanelLeftClose className={`${permanentopen ? "display-block" : "hidden"}`}
-                  onClick={ () => setPermanentopen(false)}
+                    onClick={() => setPermanentopen(false)}
                   />
                 </div>
 
@@ -855,17 +856,17 @@ const AdminPage: React.FC = () => {
 
         {/* Main Content */}
         {selectedTab === "ListView" && (
-          <div className={`flex-1 py-10 transition-all duration-300 ${ permanentopen ? 'ml-64' : 'ml-0'}`}>
+          <div className={`flex-1 py-10 transition-all duration-300 ${permanentopen ? 'ml-64' : 'ml-0'}`}>
             <EmployeeAttendanceTable />
           </div>
         )}
         {selectedTab === "EmployeesDetails" && (
-          <div className={`flex-1 transition-all duration-300 ${ permanentopen ? 'ml-64' : 'ml-0'}`}>
+          <div className={`flex-1 transition-all duration-300 ${permanentopen ? 'ml-64' : 'ml-0'}`}>
             <EmployeesDetails selectedTab={selectedTab} />
           </div>
         )}
         {selectedTab === "Projects" && (
-          <div className={`flex-1 py-10 px-10 transition-all duration-300 ${ permanentopen ? 'ml-64' : 'ml-0'}`}>
+          <div className={`flex-1 py-10 px-10 transition-all duration-300 ${permanentopen ? 'ml-64' : 'ml-0'}`}>
             <ProjectsAdmin />
           </div>
         )}
@@ -1119,7 +1120,7 @@ const AdminPage: React.FC = () => {
 
 
         {selectedTab === 'SoftwareComplaints' && (
-          <div className={`flex-1 px-10 py-8 transition-all duration-300 ${ permanentopen ? 'ml-64' : 'ml-0'}`}>
+          <div className={`flex-1 px-10 py-8 transition-all duration-300 ${permanentopen ? 'ml-64' : 'ml-0'}`}>
             <h1 className="text-3xl font-bold text-center text-gray-900 mb-6">
               Admin Dashboard
             </h1>
@@ -1161,7 +1162,7 @@ const AdminPage: React.FC = () => {
 
 
         {selectedTab === 'OfficeComplaints' && (
-          <div className={`flex-1 px-10 py-8 transition-all duration-300 ease-in-out ${ permanentopen ? 'ml-64' : 'ml-0'}`}>
+          <div className={`flex-1 px-10 py-8 transition-all duration-300 ease-in-out ${permanentopen ? 'ml-64' : 'ml-0'}`}>
             <h1 className="text-3xl font-bold text-center text-gray-900 mb-6">
               Admin Dashboard
             </h1>
@@ -1201,7 +1202,7 @@ const AdminPage: React.FC = () => {
           </div>
         )}
         {selectedTab === 'leaveRequests' && (
-          <div className={`flex-1 px-10 py-8 transition-all ease-in-out duration-300 ${ permanentopen ? 'ml-64' : 'ml-0'}`}>
+          <div className={`flex-1 px-10 py-8 transition-all ease-in-out duration-300 ${permanentopen ? 'ml-64' : 'ml-0'}`}>
             <h1 className="text-3xl font-bold text-center text-gray-900 mb-6">
               Admin Dashboard
             </h1>
