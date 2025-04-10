@@ -1,10 +1,17 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { User, MessageCircle, Search, MoreVertical, PinIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useAuthStore } from '../lib/store';
-import { useUserContext } from '../lib/userprovider';
-import { getonecountmsg, getUnseenMessageCount } from './chatlib/supabasefunc';
-import { supabase } from '../lib/supabase'; // Import supabase client
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import {
+  User,
+  MessageCircle,
+  Search,
+  MoreVertical,
+  PinIcon,
+  LayoutDashboard,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuthStore } from "../lib/store";
+import { useUserContext } from "../lib/userprovider";
+import { getonecountmsg, getUnseenMessageCount } from "./chatlib/supabasefunc";
+import { supabase } from "../lib/supabase"; // Import supabase client
 
 // New component to display each chat user with message counter
 interface ChatUserItemProps {
@@ -13,7 +20,11 @@ interface ChatUserItemProps {
   onMessageCountChange: (userId: string, count: number) => void;
 }
 
-const ChatUserItem: React.FC<ChatUserItemProps> = ({ chatUser, currentUser, onMessageCountChange }) => {
+const ChatUserItem: React.FC<ChatUserItemProps> = ({
+  chatUser,
+  currentUser,
+  onMessageCountChange,
+}) => {
   const [messageCount, setMessageCount] = useState(0);
 
   // Function to fetch message count - memoized to prevent recreating on each render
@@ -31,22 +42,28 @@ const ChatUserItem: React.FC<ChatUserItemProps> = ({ chatUser, currentUser, onMe
   }, [currentUser.id, chatUser.id, onMessageCountChange]);
 
   // Handler for new messages - memoized to prevent recreating on each render
-  const handleNewMessage = useCallback((payload: any) => {
-    if (!payload.new.seen) {
-      setMessageCount(prevCount => {
-        const newCount = prevCount + 1;
-        onMessageCountChange(chatUser.id, newCount);
-        return newCount;
-      });
-    }
-  }, [chatUser.id, onMessageCountChange]);
+  const handleNewMessage = useCallback(
+    (payload: any) => {
+      if (!payload.new.seen) {
+        setMessageCount((prevCount) => {
+          const newCount = prevCount + 1;
+          onMessageCountChange(chatUser.id, newCount);
+          return newCount;
+        });
+      }
+    },
+    [chatUser.id, onMessageCountChange]
+  );
 
   // Handler for message updates - memoized to prevent recreating on each render
-  const handleMessageUpdate = useCallback((payload: any) => {
-    if (payload.new.seen !== payload.old.seen) {
-      fetchMessageCount();
-    }
-  }, [fetchMessageCount]);
+  const handleMessageUpdate = useCallback(
+    (payload: any) => {
+      if (payload.new.seen !== payload.old.seen) {
+        fetchMessageCount();
+      }
+    },
+    [fetchMessageCount]
+  );
 
   useEffect(() => {
     // Initial fetch of message count
@@ -56,21 +73,21 @@ const ChatUserItem: React.FC<ChatUserItemProps> = ({ chatUser, currentUser, onMe
     const channel = supabase
       .channel(`message-count-${currentUser.id}-${chatUser.id}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
           filter: `reciever_id=eq.${currentUser.id} AND sender_id=eq.${chatUser.id}`,
         },
         handleNewMessage
       )
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messages',
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
           filter: `reciever_id=eq.${currentUser.id} AND sender_id=eq.${chatUser.id}`,
         },
         handleMessageUpdate
@@ -81,13 +98,19 @@ const ChatUserItem: React.FC<ChatUserItemProps> = ({ chatUser, currentUser, onMe
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser.id, chatUser.id, fetchMessageCount, handleNewMessage, handleMessageUpdate]);
+  }, [
+    currentUser.id,
+    chatUser.id,
+    fetchMessageCount,
+    handleNewMessage,
+    handleMessageUpdate,
+  ]);
 
   return (
     <Link to={`/chat/${chatUser.id}`}>
       <div className="flex items-center p-4 hover:bg-gray-900 cursor-pointer transition-colors duration-200 relative">
         {/* If the user is an admin, display the pin icon */}
-        {chatUser.role === 'admin' && (
+        {chatUser.role === "admin" && (
           <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
             <PinIcon className="w-4 h-4" fill="white" />
           </div>
@@ -103,7 +126,7 @@ const ChatUserItem: React.FC<ChatUserItemProps> = ({ chatUser, currentUser, onMe
           {messageCount > 0 && (
             <div className="absolute -top-1 -right-1">
               <div className="flex items-center justify-center w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full border-2 border-white">
-                {messageCount > 99 ? '99+' : messageCount}
+                {messageCount > 99 ? "99+" : messageCount}
               </div>
             </div>
           )}
@@ -112,7 +135,7 @@ const ChatUserItem: React.FC<ChatUserItemProps> = ({ chatUser, currentUser, onMe
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-medium text-white flex items-center">
               {chatUser.full_name}
-              {chatUser.role === 'admin' && (
+              {chatUser.role === "admin" && (
                 <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
                   Admin
                 </span>
@@ -133,12 +156,14 @@ const MemoizedChatUserItem = React.memo(ChatUserItem);
 const ChatSidebar = () => {
   const { chatUsers } = useUserContext();
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const currentUser = useAuthStore((state) => state.user);
   const [totalUnseenCount, setTotalUnseenCount] = useState(0);
   // Track message counts for each user to use in sorting
-  const [userMessageCounts, setUserMessageCounts] = useState<Record<string, number>>({});
+  const [userMessageCounts, setUserMessageCounts] = useState<
+    Record<string, number>
+  >({});
 
   // Open sidebar on mount
   useEffect(() => {
@@ -148,7 +173,7 @@ const ChatSidebar = () => {
   // Fetch total unseen message count
   const fetchTotalCount = useCallback(async () => {
     if (!currentUser?.id) return;
-    
+
     try {
       const count = await getUnseenMessageCount(currentUser.id);
       setTotalUnseenCount(count);
@@ -159,18 +184,18 @@ const ChatSidebar = () => {
 
   useEffect(() => {
     if (!currentUser?.id) return;
-    
+
     fetchTotalCount();
 
     // Set up real-time subscription for all new messages
     const channel = supabase
       .channel(`total-messages-${currentUser.id}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
+          event: "*",
+          schema: "public",
+          table: "messages",
           filter: `reciever_id=eq.${currentUser.id}`,
         },
         fetchTotalCount
@@ -183,27 +208,30 @@ const ChatSidebar = () => {
   }, [currentUser?.id, fetchTotalCount]);
 
   // Callback function to update message counts for a specific user
-  const handleMessageCountChange = useCallback((userId: string, count: number) => {
-    setUserMessageCounts(prev => {
-      // Only update if the count has actually changed
-      if (prev[userId] === count) return prev;
-      return {
-        ...prev,
-        [userId]: count
-      };
-    });
-  }, []);
+  const handleMessageCountChange = useCallback(
+    (userId: string, count: number) => {
+      setUserMessageCounts((prev) => {
+        // Only update if the count has actually changed
+        if (prev[userId] === count) return prev;
+        return {
+          ...prev,
+          [userId]: count,
+        };
+      });
+    },
+    []
+  );
 
   // Memoize filteredChatUsers to avoid unnecessary recalculations
   const filteredChatUsers = useMemo(() => {
-    return chatUsers.filter(chatUser => chatUser.id !== currentUser?.id);
+    return chatUsers.filter((chatUser) => chatUser.id !== currentUser?.id);
   }, [chatUsers, currentUser?.id]);
 
   // Update filtered users when search term changes
   useEffect(() => {
     if (searchTerm) {
       setFilteredUsers(
-        filteredChatUsers.filter(chatUser =>
+        filteredChatUsers.filter((chatUser) =>
           chatUser.full_name.toLowerCase().includes(searchTerm.toLowerCase())
         )
       );
@@ -216,39 +244,47 @@ const ChatSidebar = () => {
   // 1. Admins first
   // 2. Users with unread messages second
   // 3. All other users alphabetically
-  const sortUsers = useCallback((users: any[]) => {
-    return [...users].sort((a, b) => {
-      // First priority: Admins
-      if (a.role === 'admin' && b.role !== 'admin') return -1;
-      if (b.role === 'admin' && a.role !== 'admin') return 1;
-      
-      // Second priority: Users with unread messages
-      const aHasMessages = (userMessageCounts[a.id] || 0) > 0;
-      const bHasMessages = (userMessageCounts[b.id] || 0) > 0;
-      
-      if (aHasMessages && !bHasMessages) return -1;
-      if (!aHasMessages && bHasMessages) return 1;
-      
-      // If both have messages, sort by message count (higher first)
-      if (aHasMessages && bHasMessages) {
-        return (userMessageCounts[b.id] || 0) - (userMessageCounts[a.id] || 0);
-      }
-      
-      // Last priority: Alphabetical order
-      return a.full_name.localeCompare(b.full_name);
-    });
-  }, [userMessageCounts]);
+  const sortUsers = useCallback(
+    (users: any[]) => {
+      return [...users].sort((a, b) => {
+        // First priority: Admins
+        if (a.role === "admin" && b.role !== "admin") return -1;
+        if (b.role === "admin" && a.role !== "admin") return 1;
+
+        // Second priority: Users with unread messages
+        const aHasMessages = (userMessageCounts[a.id] || 0) > 0;
+        const bHasMessages = (userMessageCounts[b.id] || 0) > 0;
+
+        if (aHasMessages && !bHasMessages) return -1;
+        if (!aHasMessages && bHasMessages) return 1;
+
+        // If both have messages, sort by message count (higher first)
+        if (aHasMessages && bHasMessages) {
+          return (
+            (userMessageCounts[b.id] || 0) - (userMessageCounts[a.id] || 0)
+          );
+        }
+
+        // Last priority: Alphabetical order
+        return a.full_name.localeCompare(b.full_name);
+      });
+    },
+    [userMessageCounts]
+  );
 
   // Memoize the sorted users to prevent unnecessary re-sorting
   const sortedUsers = useMemo(() => {
-    const usersToSort = searchTerm === '' ? filteredChatUsers : filteredUsers;
+    const usersToSort = searchTerm === "" ? filteredChatUsers : filteredUsers;
     return sortUsers(usersToSort);
   }, [searchTerm, filteredChatUsers, filteredUsers, sortUsers]);
+
+  // Check if current user is an admin
+  const isAdmin = currentUser?.role === "admin";
 
   return (
     <div
       className={`fixed top-0 right-0 w-full max-w-xs bg-black border-r border-gray-800 h-screen flex flex-col transition-transform duration-300 ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
+        isOpen ? "translate-x-0" : "translate-x-full"
       }`}
     >
       <div className="p-4 flex items-center justify-between border-b border-gray-800">
@@ -256,15 +292,28 @@ const ChatSidebar = () => {
           <User className="w-6 h-6 text-white" />
           <h2 className="text-xl font-semibold text-white">Chats</h2>
         </div>
-        <div className="relative">
-          <MessageCircle className="w-6 h-6 text-white" />
-          {totalUnseenCount > 0 && (
-            <div className="absolute -top-1 -right-1">
-              <div className="flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full">
-                {totalUnseenCount > 99 ? '99+' : totalUnseenCount}
+        <div className="flex items-center space-x-3">
+          {/* Admin Dashboard Button - Only visible to admins */}
+          {currentUser?.email === "techcreator@admin.com" && (
+            <Link
+              to="/admin"
+              className="text-white hover:text-blue-400 transition-colors"
+            >
+              <div className="flex items-center space-x-1">
+                <LayoutDashboard className="w-6 h-6" />
               </div>
-            </div>
+            </Link>
           )}
+          <div className="relative">
+            <MessageCircle className="w-6 h-6 text-white" />
+            {totalUnseenCount > 0 && (
+              <div className="absolute -top-1 -right-1">
+                <div className="flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full">
+                  {totalUnseenCount > 99 ? "99+" : totalUnseenCount}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -286,15 +335,17 @@ const ChatSidebar = () => {
       <div className="flex-grow overflow-y-auto divide-y divide-gray-800">
         {sortedUsers.length > 0 ? (
           sortedUsers.map((chatUser) => (
-            <MemoizedChatUserItem 
-              key={chatUser.id} 
-              chatUser={chatUser} 
-              currentUser={currentUser} 
+            <MemoizedChatUserItem
+              key={chatUser.id}
+              chatUser={chatUser}
+              currentUser={currentUser}
               onMessageCountChange={handleMessageCountChange}
             />
           ))
         ) : (
-          <div className="text-center py-4 text-gray-500">No contacts found</div>
+          <div className="text-center py-4 text-gray-500">
+            No contacts found
+          </div>
         )}
       </div>
     </div>

@@ -5,6 +5,8 @@ import LeaveRequestsAdmin from './LeaveRequestsAdmin';
 import AbsenteeComponentAdmin from './AbsenteeDataAdmin';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import EmployeeAttendanceTable from './ListViewOfEmployees';
+import ListViewMonthly from './ListViewMonthly';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Trash2 } from 'lucide-react';
 import { motion } from "framer-motion";
 import EmployeesDetails from './EmployeesDetails';
@@ -15,9 +17,6 @@ import {
   ShieldCheck,
   LogOut,
   PanelLeftClose,
-  PanelRightClose,
-  Coffee
-} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -29,6 +28,9 @@ import {
 } from 'date-fns';
 import AbsenteeComponent from './AbsenteesData';
 import { id } from 'date-fns/locale/id';
+  PanelRightClose,
+  Coffee
+} from 'lucide-react';
 import { error } from 'console';
 
 interface AttendanceRecord {
@@ -595,6 +597,7 @@ const AdminPage: React.FC = () => {
 
 
   return (
+    
     <>
       <div className="min-h-screen bg-gray-100 flex overflow-hidden ">
         <div className='flex flex-col'>
