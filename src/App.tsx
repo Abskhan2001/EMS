@@ -308,6 +308,9 @@ import Adminroute from './components/adminroute';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './lib/AuthProvider';
 import { UserProvider } from './contexts/UserContext';
+import ClientDashboard from './components/ClientDashboard';
+import DashboardLoyout from './components/DashboardLoyout';
+
 
 
 function App() {
@@ -430,7 +433,7 @@ function App() {
             </PrivateRoute>
           }
         >
-          <Route index element={<Dashboard />} />
+          <Route index element={<DashboardLoyout />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="leave" element={<Leave />} />
           <Route path="tasks" element={<Tasks />} />
@@ -444,6 +447,7 @@ function App() {
           <Route path="dailylogs" element={<DailyLogs />} />
           <Route path='chat' element={<ChatSidebar />}></Route>
           <Route path="chat/:id" element={<Chat />} />
+          {/* <Route path='client-dashboard' element={<ClientDashboard/>} */}
 
         </Route>
 
