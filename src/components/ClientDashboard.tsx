@@ -40,53 +40,103 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   productivity,
   status
 }) => (
-  <div className="flex flex-col md:flex-row md:items-center md:justify-between py-4 border-b border-gray-100 space-y-4 md:space-y-0">
-    <div className="flex-1 md:flex-none">
+  <tr className="border-b border-gray-100 hover:bg-gray-50">
+    <td className="py-4 px-2 text-left">
       <h3 className="font-medium text-gray-900 text-sm md:text-base">{name}</h3>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="text-purple-600 font-medium text-sm md:text-base">{inReview}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="text-yellow-600 font-medium text-sm md:text-base">{inProgress}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="text-red-600 font-medium text-sm md:text-base">{highPriority.toString().padStart(2, '0')}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="text-red-500 font-medium text-sm md:text-base">{pendingTask}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="text-green-600 font-medium text-sm md:text-base">{done}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="text-blue-600 font-medium text-sm md:text-base">{totalTask}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="bg-green-800 text-white text-xs px-2 py-1 rounded-full">
+        {productivity}%
+      </span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="bg-green-800 text-white text-xs px-2 py-1 rounded-full">
+        {status}
+      </span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <button className="bg-black text-white px-8 py-2 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors">
+        Open Project
+      </button>
+    </td>
+  </tr>
+);
+
+// Mobile version of ProjectRow
+const ProjectRowMobile: React.FC<ProjectRowProps> = ({
+  name,
+  inReview,
+  inProgress,
+  highPriority,
+  pendingTask,
+  done,
+  totalTask,
+  productivity,
+  status
+}) => (
+  <div className="border-b border-gray-100 py-4">
+    <div className="mb-3">
+      <h3 className="font-medium text-gray-900 text-base">{name}</h3>
     </div>
-    <div className="flex flex-wrap md:flex-nowrap items-center gap-2 md:gap-4 lg:gap-6 xl:gap-8">
-      <div className="flex flex-col items-center min-w-[3rem]">
-        <span className="text-xs text-gray-500 md:hidden">In Review</span>
-        <span className="text-purple-600 font-medium text-sm md:text-base">{inReview}</span>
+    <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">In Review:</span>
+        <span className="text-purple-600 font-medium text-sm">{inReview}</span>
       </div>
-      <div className="flex flex-col items-center min-w-[3rem]">
-        <span className="text-xs text-gray-500 md:hidden">In Progress</span>
-        <span className="text-yellow-600 font-medium text-sm md:text-base">{inProgress}</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">In Progress:</span>
+        <span className="text-yellow-600 font-medium text-sm">{inProgress}</span>
       </div>
-      <div className="flex flex-col items-center min-w-[3rem]">
-        <span className="text-xs text-gray-500 md:hidden">High Priority</span>
-        <span className="text-red-600 font-medium text-sm md:text-base">{highPriority.toString().padStart(2, '0')}</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">High Priority:</span>
+        <span className="text-red-600 font-medium text-sm">{highPriority.toString().padStart(2, '0')}</span>
       </div>
-      <div className="flex flex-col items-center min-w-[3rem]">
-        <span className="text-xs text-gray-500 md:hidden">Pending Task</span>
-        <span className="text-red-500 font-medium text-sm md:text-2base">{pendingTask}</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Pending Task:</span>
+        <span className="text-red-500 font-medium text-sm">{pendingTask}</span>
       </div>
-      <div className="flex flex-col items-center min-w-[4rem]">
-        <span className="text-xs text-gray-500 md:hidden">Done</span>
-        <span className="text-green-600 font-medium text-sm md:text-base">{done}</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Done:</span>
+        <span className="text-green-600 font-medium text-sm">{done}</span>
       </div>
-      <div className="flex flex-col items-center min-w-[3rem]">
-        <span className="text-xs text-gray-500 md:hidden">Total Task</span>
-        <span className="text-blue-600 font-medium text-sm md:text-base">{totalTask}</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Total Task:</span>
+        <span className="text-blue-600 font-medium text-sm">{totalTask}</span>
       </div>
-      <div className="flex flex-col items-center min-w-[4rem]">
-        <span className="text-xs text-gray-500 md:hidden">Productivity</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Productivity:</span>
         <span className="bg-green-800 text-white text-xs px-2 py-1 rounded-full">
           {productivity}%
         </span>
       </div>
-      <div className="flex flex-col items-center min-w-[4rem]">
-        <span className="text-xs text-gray-500 md:hidden">Status</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Status:</span>
         <span className="bg-green-800 text-white text-xs px-2 py-1 rounded-full">
           {status}
         </span>
       </div>
-      <div className="w-full md:w-auto mt-2 md:mt-0">
-        <button className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors w-full md:w-auto">
-          Open Project
-        </button>
-      </div>
     </div>
+    <button className="w-full bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
+      Open Project
+    </button>
   </div>
 );
 
@@ -107,26 +157,62 @@ const TeamMemberRow: React.FC<TeamMemberProps> = ({
   inProgress,
   status
 }) => (
-  <div className="flex flex-col md:flex-row md:items-center md:justify-between py-4 border-b border-gray-100 space-y-4 md:space-y-2">
-    <div className="flex-1 md:flex-none">
+  <tr className="border-b border-gray-100 hover:bg-gray-50">
+    <td className="py-4 px-2 text-left">
       <span className="text-gray-900 font-medium text-sm md:text-base">{name}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="text-gray-600 text-sm md:text-base">{project}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="text-green-600 font-medium text-sm md:text-base">{completedTasks}</span>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <div className="flex flex-col items-center space-y-1">
+        <span className="text-red-500 font-medium text-sm">Assign ({assignTasks})</span>
+        <span className="text-yellow-600 font-medium text-sm">In Progress ({inProgress})</span>
+      </div>
+    </td>
+    <td className="py-4 px-2 text-center">
+      <span className="bg-green-800 text-white text-xs px-2 py-1 rounded-full">
+        {status}
+      </span>
+    </td>
+  </tr>
+);
+
+// Mobile version of TeamMemberRow
+const TeamMemberRowMobile: React.FC<TeamMemberProps> = ({
+  name,
+  project,
+  completedTasks,
+  assignTasks,
+  inProgress,
+  status
+}) => (
+  <div className="border-b border-gray-100 py-4">
+    <div className="mb-3">
+      <span className="text-gray-900 font-medium text-base">{name}</span>
     </div>
-    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-8">
-      <div className="flex-1 md:text-center">
-        <span className="text-xs text-gray-500 md:hidden">Project: </span>
-        <span className="text-gray-600 text-sm md:text-base">{project}</span>
+    <div className="grid grid-cols-1 gap-2 mb-4">
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Project:</span>
+        <span className="text-gray-600 text-sm">{project}</span>
       </div>
-      <div className="flex-1 md:text-center">
-        <span className="text-xs text-gray-500 md:hidden">Completed Tasks: </span>
-        <span className="text-green-600 font-medium text-sm md:text-base">{completedTasks}</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Completed Tasks:</span>
+        <span className="text-green-600 font-medium text-sm">{completedTasks}</span>
       </div>
-      <div className="flex-1 md:text-center">
-        <span className="text-xs text-gray-500 md:hidden">Tasks: </span>
-        <span className="text-red-500 font-medium text-sm md:text-base">Assign ({assignTasks})</span>
-        <span className="text-yellow-600 ml-2 text-sm md:text-base">in progress ({inProgress})</span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Assigned Tasks:</span>
+        <span className="text-red-500 font-medium text-sm">{assignTasks}</span>
       </div>
-      <div className="flex-1 md:text-center">
-        <span className="text-xs text-gray-500 md:hidden">Status: </span>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">In Progress:</span>
+        <span className="text-yellow-600 font-medium text-sm">{inProgress}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-xs text-gray-500">Status:</span>
         <span className="bg-green-800 text-white text-xs px-2 py-1 rounded-full">
           {status}
         </span>
@@ -136,6 +222,77 @@ const TeamMemberRow: React.FC<TeamMemberProps> = ({
 );
 
 const ClientDashboard: React.FC = () => {
+  const projects = [
+    {
+      name: "E-Commerce Platform",
+      inReview: 8,
+      inProgress: 12,
+      highPriority: 3,
+      pendingTask: 15,
+      done: "45/80",
+      totalTask: 80,
+      productivity: 75,
+      status: "Good"
+    },
+    {
+      name: "Mobile App Development",
+      inReview: 5,
+      inProgress: 8,
+      highPriority: 2,
+      pendingTask: 10,
+      done: "30/60",
+      totalTask: 60,
+      productivity: 65,
+      status: "Average"
+    },
+    {
+      name: "CRM System",
+      inReview: 3,
+      inProgress: 6,
+      highPriority: 1,
+      pendingTask: 8,
+      done: "25/45",
+      totalTask: 45,
+      productivity: 85,
+      status: "Excellent"
+    }
+  ];
+
+  const teamMembers = [
+    {
+      name: "Asad Khan",
+      project: "E-Commerce Platform",
+      completedTasks: 25,
+      assignTasks: 8,
+      inProgress: 3,
+      status: "Active"
+    },
+    {
+      name: "Ahmed Ali",
+      project: "Mobile App Development",
+      completedTasks: 18,
+      assignTasks: 5,
+      inProgress: 2,
+      status: "Active"
+    },
+    {
+      name: "Muhammad Ali",
+      project: "CRM System",
+      completedTasks: 22,
+      assignTasks: 6,
+      inProgress: 4,
+      status: "Active"
+    },
+    {
+      name: "Ali Nawaz",
+      project: "E-Commerce Platform",
+      completedTasks: 15,
+      assignTasks: 4,
+      inProgress: 1,
+      status: "Busy"
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="p-4 md:p-6 lg:p-8">
@@ -151,6 +308,7 @@ const ClientDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+        
         <div className="max-w-full lg:max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 md:mb-8 space-y-4 md:space-y-0">
@@ -168,32 +326,32 @@ const ClientDashboard: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
             <TaskCard
               title="Total Task"
-              count={100}
+              count={185}
               color="text-blue-600"
               bgColor="bg-white"
             />
             <TaskCard
               title="Pending Task"
-              count={30}
+              count={33}
               color="text-red-500"
               bgColor="bg-white"
             />
             <TaskCard
-              title="in Progress"
-              count={10}
+              title="In Progress"
+              count={26}
               color="text-yellow-600"
               bgColor="bg-white"
             />
             <TaskCard
               title="In Review"
-              count={20}
+              count={16}
               color="text-purple-600"
               bgColor="bg-white"
             />
             <div className="col-span-2 md:col-span-3 lg:col-span-1">
               <TaskCard
                 title="Done Task"
-                count={40}
+                count={100}
                 color="text-green-600"
                 bgColor="bg-white"
               />
@@ -208,54 +366,57 @@ const ClientDashboard: React.FC = () => {
                 <h2 className="text-lg md:text-xl font-semibold text-gray-900">Projects</h2>
               </div>
               <button className="flex items-center justify-center space-x-2 bg-white border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors">
-                <span className="text-gray-700">One by One</span>
+                <span className="text-gray-700">All Projects</span>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </button>
             </div>
 
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 space-y-3 md:space-y-0">
-              <h3 className="text-base md:text-lg font-medium text-gray-900">Project 1 Name</h3>
+              <h3 className="text-base md:text-lg font-medium text-gray-900">Active Projects</h3>
               <button className="flex items-center justify-center space-x-2 bg-white border border-gray-300 rounded-lg px-6 md:px-8 py-2 hover:bg-gray-50 transition-colors">
                 <span className="text-gray-700">Today</span>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </button>
             </div>
 
-            {/* Project Headers - Hidden on mobile */}
-            <div className="hidden md:flex items-center justify-between py-3 border-b-2 border-gray-200 mb-4">
-              <div className="flex-1">
-                <span className="text-sm font-medium text-gray-500">Project</span>
-              </div>
-              <div className="flex items-center space-x-4 lg:space-x-6 xl:space-x-8">
-                <span className="text-purple-600 font-medium w-12 text-center text-sm">In Review</span>
-                <span className="text-yellow-600 font-medium w-12 text-center text-sm">In Progress</span>
-                <span className="text-red-600 font-medium w-12 text-center text-sm">High Priority</span>
-                <span className="text-red-500 font-medium w-12 text-center text-sm">Pending Task</span>
-                <span className="text-green-600 font-medium w-16 text-center text-sm">Done</span>
-                <span className="text-blue-600 font-medium w-12 text-center text-sm">Total Task</span>
-                <span className="text-gray-600 font-medium w-16 text-center text-sm">Productivity</span>
-                <span className="text-gray-600 font-medium w-16 text-center text-sm">Status</span>
-                <div className="w-32"></div>
-              </div>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-2 text-sm font-medium text-gray-500">Project</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-purple-600">In Review</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-yellow-600">In Progress</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-red-600">High Priority</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-red-500">Pending Task</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-green-600">Done</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-blue-600">Total Task</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-gray-600">Productivity</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-gray-600">Status</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-gray-500">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map((project, index) => (
+                    <ProjectRow key={index} {...project} />
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            <ProjectRow
-              name="Project 1 Name"
-              inReview={20}
-              inProgress={10}
-              highPriority={1}
-              pendingTask={20}
-              done="40/100"
-              totalTask={100}
-              productivity={80}
-              status="Good"
-            />
+            {/* Mobile Cards */}
+            <div className="md:hidden">
+              {projects.map((project, index) => (
+                <ProjectRowMobile key={index} {...project} />
+              ))}
+            </div>
 
             {/* Navigation */}
             <div className="flex justify-center items-center space-x-4 mt-6">
               <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
+              <span className="text-sm text-gray-600">Page 1 of 1</span>
               <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
@@ -266,36 +427,35 @@ const ClientDashboard: React.FC = () => {
           <div className="bg-white rounded-lg p-4 md:p-6 shadow-sm">
             <div className="flex items-center space-x-3 mb-4 md:mb-6">
               <Users className="w-5 h-5 text-gray-600" />
-              <h2 className="text-lg md:text-xl font-semižold text-gray-900">Team Members</h2>
+              <h2 className="text-lg md:text-xl font-semibold text-gray-900">Team Members</h2>
             </div>
 
-            {/* Team Member Headers - Hidden on mobile */}
-            <div className="hidden md:flex items-center justify-between py-3 border-b-2 border-gray-200 mb-4">
-              <div className="flex-1">
-                <span className="text-sm font-medium text-gray-500">Name</span>
-              </div>
-              <div className="flex-1 text-center">
-                <span className="text-sm font-medium text-gray-500">Project</span>
-              </div>
-              <div className="flex-1 text-center">
-                <span className="text-sm font-medium text-gray-500">Completed Tasks</span>
-              </div>
-              <div className="flex-1 text-center">
-                <span className="text-sm font-medium text-gray-500">Tasks</span>
-              </div>
-              <div className="flex-1 text-center">
-                <span className="text-sm font-medium text-gray-500">Status</span>
-              </div>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-2 text-sm font-medium text-gray-500">Name</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-gray-500">Project</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-gray-500">Completed Tasks</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-gray-500">Tasks</th>
+                    <th className="text-center py-3 px-2 text-sm font-medium text-gray-500">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamMembers.map((member, index) => (
+                    <TeamMemberRow key={index} {...member} />
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            <TeamMemberRow
-              name="Asad khan"
-              project="Assign Project Name"
-              completedTasks={70}
-              assignTasks={10}
-              inProgress={3}
-              status="Good"
-            />
+            {/* Mobile Cards */}
+            <div className="md:hidden">
+              {teamMembers.map((member, index) => (
+                <TeamMemberRowMobile key={index} {...member} />
+              ))}
+            </div>
           </div>
         </div>
       </div>

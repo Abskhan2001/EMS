@@ -578,7 +578,7 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
         </div>
       </div>
     );
-  }
+    }
 
 
   return (
