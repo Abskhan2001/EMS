@@ -27,7 +27,7 @@ function AddColumnDialog({ onAddColumn }) {
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <button className="flex items-center relative left-[2.3rem] whitespace-nowrap mt-9 rotate-90 w-fit gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg shadow transition-all duration-200 font-semibold text-sm">
+        <button className="flex items-center relative right-9  whitespace-nowrap mt-9 rotate-90 w-fit gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg shadow transition-all duration-200 font-semibold text-sm">
           Add Column
         </button>
       </AlertDialogTrigger>

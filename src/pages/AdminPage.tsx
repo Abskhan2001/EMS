@@ -693,285 +693,244 @@ const AdminPage: React.FC = () => {
   return (
     <>
       <div className="min-h-screen bg-gray-100 flex  overflow-hidden w-full">
-        <div
-          className={`flex flex-col ${isSideBarOpen ? 'w-[15rem]' : 'w-[0%]'}`}
-        >
-          <PanelRightClose
-            className={`${permanentopen ? 'hidden' : 'display-block'} 
-        box-border-2  border-gray-300 rounded-full  m-2 fixed top-2 left-[-20px] z-40  size-[50px] p-3 text-[#7e26b8] hover:bg-gray-200 shadow-lg cursor-pointer `}
-            onClick={() => {
-              setPermanentopen(true);
-              dispatch(openSideBar());
-            }}
-          />
-          <div className="min-h-screen bg-gray-100 flex">
-            <motion.div
-              className="absolute top-0 left-0 min-h-full w-[15rem] bb-white text-white shadow-lg p-4 z-20"
-              initial={{ x: '-100%' }}
-              animate={{
-                x: permanentopen ? '0%' : '-100%',
+        <>
+          {!permanentopen && (
+            <PanelRightClose
+              className="fixed top-4 left-2 z-50 size-[40px] p-2 text-[#7e26b8] bg-white border border-gray-200 rounded-full shadow-lg cursor-pointer hover:bg-gray-100 transition"
+              onClick={() => {
+                setPermanentopen(true);
+                dispatch(openSideBar());
               }}
-              transition={{ duration: 0.4, ease: 'easeInOut' }} // Smooth transition
-              onMouseLeave={() => {
-                if (!permanentopen) {
-                  handleClose();
-                }
-              }}
-            >
-              <div
-                className={`bg-black w-[15rem] p-4 shadow-lg fixed left-0 top-0 bottom-0 transform transition-all duration-300 ease-in-out
-  ${
-    permanentopen ? 'translate-x-0' : '-translate-x-full'
-  } lg:translate-x-0 h-screen flex flex-col`}
-              >
-                {/* Logo */}
-                <div className="mb-8 flex justify-between items-center">
-                  <h1 className="font-semibold text-[26px]">Estrowork</h1>
-                  <PanelRightClose
-                    className={`${permanentopen ? 'hidden' : 'display-block'}`}
-                    onClick={() => setPermanentopen(true)}
-                  />
-                  <PanelLeftClose
-                    className={`${permanentopen ? 'display-block ' : 'hidden'}`}
+            />
+          )}
+
+          {/* Sidebar */}
+          <motion.aside
+            className="fixed top-0 left-0 h-screen w-[15rem] z-40 bg-black text-white shadow-lg flex flex-col p-4"
+            initial={{ x: '-100%' }}
+            animate={{ x: permanentopen ? 0 : '-100%' }}
+            transition={{ duration: 0.4, ease: 'easeInOut' }}
+          >
+            {/* Header */}
+            <div className="mb-8 flex justify-between items-center">
+              <h1 className="font-semibold text-[26px]">Estrowork</h1>
+              <PanelLeftClose
+                className="cursor-pointer hover:text-[#9A00FF] transition"
+                onClick={() => {
+                  setPermanentopen(false);
+                  dispatch(closeSideBar());
+                }}
+              />
+            </div>
+
+            {/* Sidebar Buttons */}
+            <div className="flex flex-col flex-grow justify-between overflow-y-auto sidebar-scroll">
+              <div className="flex flex-col space-y-4">
+                <Link to="organization">
+                  <button
                     onClick={() => {
-                      setPermanentopen(false);
+                      setSelectedTab('organization');
                       dispatch(closeSideBar());
+                      setPermanentopen(false);
                     }}
-                  />
-                </div>
-
-                {/* Sidebar Buttons Container (Ensures Space Between) */}
-                <div
-                  className="flex flex-col flex-grow justify-between overflow-y-auto sidebar-scroll"
-                  style={{
-                    scrollbarWidth: 'none' /* Firefox */,
-                    msOverflowStyle: 'none' /* Internet Explorer 10+ */,
-                  }}
-                >
-                  <div className="flex flex-col space-y-4">
-                    <Link to="organization">
-                      <button
-                        onClick={() => {
-                          setSelectedTab('organization');
-                          dispatch(closeSideBar());
-                          handleClose();
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'organization'
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Dashboard
-                      </button>
-                    </Link>
-
-                    <Link to="employeAttandanceTable">
-                      <button
-                        onClick={() => {
-                          setSelectedTab('ListView');
-                          dispatch(closeSideBar());
-                          setShowEmployeeList(!showEmployeeList);
-                          handleClose();
-                          setEmployeeListOpen(true);
-                          // setListView(!ListView);
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          location.pathname.includes(
-                            '/admin/employeAttandanceTable'
-                          )
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                          ///////////////
-                        }`}
-                      >
-                        Attendence
-                      </button>
-                    </Link>
-
-                    <Link to="employeeDetails">
-                      <button
-                        onClick={() => {
-                          setSelectedTab('EmployeesDetails');
-                          dispatch(closeSideBar());
-                          handleClose();
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          location.pathname.includes('/admin/employeeDetails')
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Members
-                      </button>
-                    </Link>
-
-                    <Link to="Clients">
-                      <button
-                        onClick={() => {
-                          setSelectedTab('Clients');
-                          dispatch(closeSideBar());
-                          handleClose();
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'Clients'
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Clients
-                      </button>
-                    </Link>
-
-                    <Link to="projects">
-                      <button
-                        onClick={() => {
-                          setSelectedTab('Projects');
-                          dispatch(closeSideBar());
-                          handleClose();
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'Projects'
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Projects
-                      </button>
-                    </Link>
-                    <Link to="OfficeComplaints">
-                      <button
-                        onClick={() => {
-                          handleClose();
-                          setSelectedTab('OfficeComplaints');
-                          dispatch(closeSideBar());
-                          handleOfficeComplaintsClick();
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'OfficeComplaints' ||
-                          location.pathname.includes('OfficeComplaints')
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Office Complaints
-                      </button>
-                    </Link>
-
-                    <Link to="softwareComplaints">
-                      <button
-                        onClick={() => {
-                          handleClose();
-                          setSelectedTab('SoftwareComplaints');
-                          dispatch(closeSideBar());
-                          handleSoftwareComplaintsClick();
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'SoftwareComplaints'
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Software Complaints
-                      </button>
-                    </Link>
-
-                    <Link to="Holidays">
-                      <button
-                        onClick={() => {
-                          setSelectedTab('Holidays');
-                          dispatch(closeSideBar());
-                          handleClose();
-                          handleSoftwareComplaintsClick();
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'Holidays'
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Holidays
-                      </button>
-                    </Link>
-
-                    <Link to="leaverequest">
-                      <button
-                        onClick={() => {
-                          handleClose();
-                          setSelectedTab('leaveRequests');
-                          dispatch(closeSideBar());
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'leaveRequests'
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Leave Requests
-                        {PendingLeaveRequests > 0 && (
-                          <span className="bg-blue-500 text-white rounded-full px-3 pb-[2px] ml-4 text-md">
-                            {PendingLeaveRequests}
-                          </span>
-                        )}
-                      </button>
-                    </Link>
-                    <Link to="officealerts">
-                      <button
-                        onClick={() => {
-                          handleClose();
-                          dispatch(closeSideBar());
-                          setSelectedTab('Updates');
-
-                          // setIsOpen(false);
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'Updates'
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Office Alerts
-                      </button>
-                    </Link>
-                    <Link to="dailylogs">
-                      <button
-                        onClick={() => {
-                          dispatch(closeSideBar());
-                          handleClose();
-                          setSelectedTab('DailyLogs');
-                        }}
-                        className={`w-full text-left p-2 rounded ${
-                          selectedTab === 'DailyLogs'
-                            ? 'bg-[#9A00FF] text-White'
-                            : 'text-white hover:bg-[#9A00FF]'
-                        }`}
-                      >
-                        Daily Logs
-                      </button>
-                    </Link>
-                  </div>
-
-                  {/* Sign Out Button (Placed at the Bottom) */}
-                  <div>
-                    <button
-                      onClick={() => {
-                        handleSignOut();
-                      }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50"
-                    >
-                      <LogOut className="w-5 h-5 mr-3" />
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
+                    className={`w-full text-left p-2 rounded ${
+                      selectedTab === 'organization'
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Dashboard
+                  </button>
+                </Link>
+                <Link to="employeAttandanceTable">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('ListView');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      location.pathname.includes(
+                        '/admin/employeAttandanceTable'
+                      )
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Attendance
+                  </button>
+                </Link>
+                <Link to="employeeDetails">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('EmployeesDetails');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      location.pathname.includes('/admin/employeeDetails')
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Members
+                  </button>
+                </Link>
+                <Link to="Clients">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('Clients');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      selectedTab === 'Clients'
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Clients
+                  </button>
+              </Link>
+                <Link to="projects">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('Projects');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      location.pathname.includes('projects')
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Projects
+                  </button>
+                </Link>
+                <Link to="OfficeComplaints">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('OfficeComplaints');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                      handleOfficeComplaintsClick();
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      selectedTab === 'OfficeComplaints' ||
+                      location.pathname.includes('OfficeComplaints')
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Office Complaints
+                  </button>
+                </Link>
+                <Link to="softwareComplaints">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('SoftwareComplaints');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                      handleSoftwareComplaintsClick();
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      selectedTab === 'SoftwareComplaints'
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Software Complaints
+                  </button>
+                </Link>
+                <Link to="Holidays">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('Holidays');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                      handleSoftwareComplaintsClick();
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      selectedTab === 'Holidays'
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Holidays
+                  </button>
+                </Link>
+                <Link to="leaverequest">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('leaveRequests');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      selectedTab === 'leaveRequests'
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Leave Requests
+                    {PendingLeaveRequests > 0 && (
+                      <span className="bg-blue-500 text-white rounded-full px-3 pb-[2px] ml-4 text-md">
+                        {PendingLeaveRequests}
+                      </span>
+                    )}
+                  </button>
+                </Link>
+                <Link to="officealerts">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('Updates');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      selectedTab === 'Updates'
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Office Alerts
+                  </button>
+                </Link>
+                <Link to="dailylogs">
+                  <button
+                    onClick={() => {
+                      setSelectedTab('DailyLogs');
+                      dispatch(closeSideBar());
+                      setPermanentopen(false);
+                    }}
+                    className={`w-full text-left p-2 rounded ${
+                      selectedTab === 'DailyLogs'
+                        ? 'bg-[#9A00FF] text-white'
+                        : 'text-white hover:bg-[#9A00FF]'
+                    }`}
+                  >
+                    Daily Logs
+                  </button>
+                </Link>
               </div>
-            </motion.div>
-
-            <div></div>
-          </div>
-        </div>
+              {/* Sign Out Button */}
+              <div>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50"
+                >
+                  <LogOut className="w-5 h-5 mr-3" />
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </motion.aside>
+        </>
         <div
-          className={`w-full ${isSideBarOpen ? 'max-w-[80%]' : 'max-w-full'}`}
+          className={`w-full ${
+            isSideBarOpen ? 'max-w-[80%] ml-[15rem]' : 'max-w-full'
+          }`}
         >
           {selectedTab === 'Employees' && (
             <div

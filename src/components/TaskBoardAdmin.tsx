@@ -598,8 +598,8 @@ function TaskBoardAdmin({ setSelectedTAB, selectedTAB, ProjectId, devopss }) {
                   </span>
                 </div>
                 {task.commentCount > 0 && (
-                  <span className="text-sm text-gray-600">
-                    {task.commentCount}{' '}
+                  <span className={`text-[10px] text-gray-600 `}>
+                    {task.commentCount}
                     {task.commentCount === 1 ? 'comment' : 'comments'}
                   </span>
                 )}
@@ -931,8 +931,11 @@ function TaskBoardAdmin({ setSelectedTAB, selectedTAB, ProjectId, devopss }) {
                 {/* Left side */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => navigate(-1)}
-                    className="text-gray-600 hover:text-gray-800 p-2 hover:bg-gray-100 rounded-full transition"
+                    onClick={() => {
+                      setSelectedTAB('Projects');
+                      navigate(-1);
+                    }}
+                    className="text-gray-600 hover:text-pink-500 p-2 hover:bg-gray-100 rounded-full transition"
                   >
                     <ArrowLeft size={24} />
                   </button>
@@ -1027,7 +1030,7 @@ function TaskBoardAdmin({ setSelectedTAB, selectedTAB, ProjectId, devopss }) {
 
             {view === 'card' ? (
               <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="flex flex-row justify-between">
+                <div className="flex flex-row justify-between  w-full">
                   {/* Draggable columns */}
                   <Droppable
                     droppableId="all-columns"
@@ -1038,7 +1041,7 @@ function TaskBoardAdmin({ setSelectedTAB, selectedTAB, ProjectId, devopss }) {
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className="grid grid-flow-col lg:ml-0 lg:grid-flow-col gap-4 overflow-x-scroll overflow-y-hidden"
+                        className="flex w-full min-w-0 overflow-x-auto overflow-y-hidden gap-2"
                       >
                         {columns.map((col, index) => {
                           const prevCol = index > 0 ? columns[index - 1] : null;
@@ -1053,8 +1056,10 @@ function TaskBoardAdmin({ setSelectedTAB, selectedTAB, ProjectId, devopss }) {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   className={`bg-white ${
-                                    isSideBarOpen ? 'w-[260px]' : 'w-[255px]'
-                                  } rounded-[20px] p-4 shadow-md min-h-[500px] max-h-[calc(100vh-300px)] flex flex-col`}
+                                    isSideBarOpen
+                                      ? 'max-w-[24.3%]'
+                                      : 'max-w-[24.4%]'
+                                  } flex-shrink-0 w-1/4  rounded-[20px] p-4 shadow-md min-h-[500px] max-h-[calc(100vh-300px)] flex flex-col`}
                                 >
                                   {/* Header (drag handle) */}
                                   <div
@@ -1284,7 +1289,7 @@ function TaskBoardAdmin({ setSelectedTAB, selectedTAB, ProjectId, devopss }) {
                   </Droppable>
 
                   {/* Add column button (outside columns, as before) */}
-                  <div className="">
+                  <div className="max-w-0">
                     <AddColumnDialog
                       onAddColumn={(newTitle, color) => {
                         const newId = newTitle

@@ -7,9 +7,20 @@ import { formatDistanceToNow } from 'date-fns';
 import TaskBoardAdmin from './TaskBoardAdmin';
 import Select from 'react-select';
 import { useUser } from '../contexts/UserContext';
-import { useDispatch } from 'react-redux';
-import { AppDispatch } from '../store';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../store';
 import { addProjectName } from '../slices/AdminProjectName';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 
 interface Project {
   id: string;
@@ -585,27 +596,46 @@ function ProjectsAdmin() {
     }));
   };
 
-  const handleDeleteProject = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this project?'
+  function DeleteProjectDialog({ onConfirm, children }) {
+    return (
+      <AlertDialog>
+        <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this project? This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={onConfirm}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     );
-    if (!confirmed) return;
-
+  }
+  const handleDeleteProject = async (id: string) => {
     try {
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
       setProjects(projects.filter((project) => project.id !== id));
+
+      // Delete related tasks
+      const { error: taskError } = await supabase
+        .from('tasks_of_projects')
+        .delete()
+        .eq('project_id', id);
+      if (taskError) throw taskError;
     } catch (err) {
       console.error('Failed to delete project:', err);
     }
-
-    const { error } = await supabase
-      .from('tasks_of_projects')
-      .delete()
-      .eq('project_id', id);
-    if (error) throw error;
   };
 
   const openAddModal = () => {
@@ -940,7 +970,7 @@ function ProjectsAdmin() {
     };
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+      <div className="fixed  inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
@@ -1319,7 +1349,7 @@ function ProjectsAdmin() {
   };
 
   const dispatch = useDispatch<AppDispatch>();
-
+  const isSidrBarOpen = useSelector((state: RootState) => state.sideBar.isOpen);
   return (
     <div className="min-h-screen">
       {loading ? (
@@ -1474,7 +1504,7 @@ function ProjectsAdmin() {
               </div>
 
               {/* Workload Stats */}
-              <div className="bg-white rounded-lg shadow-sm px-4 py-3 mb-4">
+              <div className="bg-white rounded-lg shadow-sm px-4 py-3 mb-4 ">
                 {/* <h2 className="text-lg font-semibold mb-3">Developer Workload</h2> */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <button
@@ -2464,18 +2494,22 @@ function ProjectsAdmin() {
                                 >
                                   <Pencil size={16} color="#667085" />
                                 </button>
-                                <button
-                                  className="text-gray-400 hover:text-red-600"
-                                  onClick={(e) =>
-                                    handleDeleteProject(project.id, e)
+                                <DeleteProjectDialog
+                                  onConfirm={() =>
+                                    handleDeleteProject(project.id)
                                   }
                                 >
-                                  <Trash2 size={16} color="#667085" />
-                                </button>
+                                  <button
+                                    className="text-red-600 hover:text-red-800"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                </DeleteProjectDialog>
                               </div>
                             </div>
-                            <div className="w-full flex justify-between items-center pl-2 pr-2 py-2 bg-[#f7eaff] rounded-lg">
-                              <div className="flex items-center gap-2 mb-1">
+                            <div className="w-full border flex justify-between items-center pl-2 pr-2 py-2 bg-purple-400 rounded-lg ">
+                              <div className="flex flex-col items-center gap-2 mb-1">
                                 <span className="text-sm font-semibold">
                                   Story Points:
                                 </span>
@@ -2493,7 +2527,7 @@ function ProjectsAdmin() {
                                         | 'monthly'
                                     );
                                   }}
-                                  className="text-xs bg-white border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                  className="text-xs bg-white  rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-500 w-full"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <option value="all">All</option>
@@ -2501,18 +2535,34 @@ function ProjectsAdmin() {
                                   <option value="monthly">Monthly</option>
                                 </select>
                               </div>
-                              <span className="text-sm font-semibold">
-                                <span className="text-green-600">
-                                  {project.completedScore}
-                                </span>
-                                <span className="text-gray-500"> / </span>
-                                <span className="text-red-500">
-                                  {project.totalScore}
-                                </span>
-                              </span>
-                              <div className="text-xs text-gray-600 mt-1">
-                                Completed: {project.completedScore} | Pending:{' '}
-                                {project.pendingScore}
+                              <div className="flex  flex-col  justify-end">
+                                <div className="  text-end">
+                                  <span className="text-sm font-semibold w-full ">
+                                    <span className="text-green-200">
+                                      {project.completedScore}
+                                    </span>
+                                    <span className="text-gray-500"> / </span>
+                                    <span className="text-red-500">
+                                      {project.totalScore}
+                                    </span>
+                                  </span>
+                                </div>
+                                <div
+                                  className={`${
+                                    isSidrBarOpen
+                                      ? 'text-[10px]'
+                                      : 'text-[12px]'
+                                  } text-gray-600 mt-1 font-extralight`}
+                                >
+                                  Completed:{' '}
+                                  <span className="font-bold text-black">
+                                    {project.completedScore}
+                                  </span>{' '}
+                                  | Pending:{' '}
+                                  <span className="font-bold text-black">
+                                    {project.pendingScore}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
