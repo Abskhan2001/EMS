@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
 import Employeeprofile from './Employeeprofile';
 import toast from 'react-hot-toast';
 
@@ -38,12 +37,6 @@ interface Project {
 }
 
 const EmployeesDetails = () => {
-  // Check if service role key is available
-  if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
-    console.error(
-      'VITE_SUPABASE_SERVICE_ROLE_KEY is not set in environment variables'
-    );
-  }
 
   // State management
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -561,12 +554,6 @@ const EmployeesDetails = () => {
     setIsCreatingEmployee(true);
 
     try {
-      // Check if service role key is available
-      if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
-        throw new Error(
-          'Service role key is not configured. Please contact administrator.'
-        );
-      }
 
       // Use admin client to create user without affecting current session
       const { data, error } = await supabaseAdmin.auth.admin.createUser({

@@ -184,7 +184,7 @@ const Attendance: React.FC = () => {
   const [isDisabled, setIsDisabled] = useState(false);
   const [isButtonLoading, setisButtonLoading] = useState(false);
   const [alreadycheckedin, setalreadycheckedin] = useState(false);
-  const [alreadybreak, setalreadybreak] = useState<boolean>(false);
+
   const [isbreak, setisbreak] = useState<boolean>(true);
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
 
@@ -268,16 +268,18 @@ const Attendance: React.FC = () => {
 
       if (attendanceError) throw attendanceError;
 
-      // 6. Update selected tasks status to inProgress if they were todo
+      // 6. Update selected tasks status to inProgress if they were todo or review
       if (selectedTaskIds.length > 0) {
         const { error: updateTasksError } = await supabase
           .from('tasks_of_projects')
           .update({ status: 'inProgress' })
           .in('id', selectedTaskIds)
-          .eq('status', 'todo');
+          .in('status', ['todo', 'review']);
 
         if (updateTasksError) {
           console.error('Error updating task status:', updateTasksError);
+        } else {
+          console.log(`Successfully moved ${selectedTaskIds.length} task(s) to In Progress status`);
         }
       }
 
@@ -360,6 +362,9 @@ const Attendance: React.FC = () => {
 
       // 10. Reload attendance records
       await loadAttendanceRecords();
+
+      // 11. Refresh current attendance status
+      await refreshCurrentAttendanceStatus();
     } catch (err) {
       console.error('Error in handleApplyTasks:', err);
       setError(handleSupabaseError(err));
@@ -375,7 +380,7 @@ const Attendance: React.FC = () => {
   };
 
   // IMPROVED: Function to handle checkout task submission
-  const handleCheckoutTaskSubmit = async (taskUpdate: string) => {
+  const handleCheckoutTaskSubmit = async (taskUpdate: string, selectedTaskId?: string) => {
     if (!taskUpdate.trim() || !user?.id) return;
 
     try {
@@ -390,8 +395,35 @@ const Attendance: React.FC = () => {
           rating: null,
           reply_to_id: null,
           admin_id: null,
+          task_id: selectedTaskId || null, // Save selected task ID if provided
         },
       ]);
+
+      // If a task was selected, move it from "in_progress" to "review" status
+      if (selectedTaskId) {
+        console.log(`Moving task ${selectedTaskId} from inProgress to review status`);
+
+        try {
+          const { error: taskUpdateError } = await supabase
+            .from('tasks_of_projects')
+            .update({
+              status: 'review',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', selectedTaskId)
+            .eq('status', 'inProgress'); // Only update if it's currently inProgress
+
+          if (taskUpdateError) {
+            console.error('Error updating task status:', taskUpdateError);
+            // Don't throw error here - we still want to complete checkout
+          } else {
+            console.log(`Successfully moved task ${selectedTaskId} to review status`);
+          }
+        } catch (taskError) {
+          console.error('Error in task status update:', taskError);
+          // Continue with checkout even if task update fails
+        }
+      }
 
       if (error) {
         console.error('Error saving to dailylog:', error);
@@ -501,53 +533,66 @@ const Attendance: React.FC = () => {
           59
         );
 
-        // Updated query to get the most recent unchecked-out attendance
-        const { data, error } = await withRetry(() =>
-          supabase
-            .from('attendance_logs')
-            .select('id, check_in, check_out')
-            .eq('user_id', localStorage.getItem('user_id'))
-            .gte('check_in', startOfDay.toISOString())
-            .lte('check_in', endOfDay.toISOString())
-            .order('check_in', { ascending: false })
-            .limit(1)
-            .single()
-        );
+        // First, check how many check-ins the user has done today (limit: 2)
+        const { data: allTodayRecords, error: countError } = await supabase
+          .from('attendance_logs')
+          .select('id, check_in, check_out')
+          .eq('user_id', localStorage.getItem('user_id'))
+          .gte('check_in', startOfDay.toISOString())
+          .lte('check_in', endOfDay.toISOString())
+          .order('check_in', { ascending: false });
 
-        if (error) {
+        if (countError) {
           setisButtonLoading(false);
-
-          if (error.code !== 'PGRST116') {
-            // If no record exists, it's okay
-            console.error('Error loading current attendance:', error);
-          }
+          console.error('Error loading attendance records:', countError);
           return;
         }
 
-        if (data) {
-          setisButtonLoading(false);
+        const totalCheckInsToday = allTodayRecords?.length || 0;
+        console.log(`🔍 DEBUG: User has ${totalCheckInsToday} check-ins today`, allTodayRecords);
 
-          if (
-            data.check_in &&
-            localStorage.getItem('user_id') !==
-            '759960d6-9ada-4dcc-b385-9e2da0a862be'
-          ) {
-            setalreadycheckedin(true);
-          }
-          if (data.check_out === null) {
-            // User has an active session (not checked out)
+        // STRICT ENFORCEMENT: Check if user has reached the daily limit of 1 check-in
+        if (totalCheckInsToday >= 1) {
+          // Check if there's an active session (unchecked-out)
+          const activeSession = allTodayRecords?.find(record => record.check_out === null);
+
+          if (activeSession) {
+            // User has an active session - allow check-out only
+            console.log('✅ Found active session - allowing check-out:', activeSession);
             setIsCheckedIn(true);
-            setAttendanceId(data.id);
-            setCheckIn(data.check_in);
+            setAttendanceId(activeSession.id);
+            setCheckIn(activeSession.check_in);
+            setalreadycheckedin(false); // Allow check-out
           } else {
-            // User has checked out
+            // User has completed 1 check-in for the day - BLOCK ALL FURTHER CHECK-INS
+            console.log('🚫 DAILY LIMIT REACHED: User has completed 1 check-in');
             setIsCheckedIn(false);
+            setAttendanceId(null);
+            setCheckIn(null);
+            setalreadycheckedin(true); // BLOCK further check-ins
           }
         } else {
-          // No record found means user is not checked in
-          setIsCheckedIn(false);
-          console.log('No attendance record found');
+          // User hasn't reached the limit, check for active session
+          const activeSession = allTodayRecords?.find(record => record.check_out === null);
+
+          if (activeSession) {
+            // User has an active session
+            console.log('✅ Found active session:', activeSession);
+            setIsCheckedIn(true);
+            setAttendanceId(activeSession.id);
+            setCheckIn(activeSession.check_in);
+            setalreadycheckedin(false);
+          } else {
+            // No active session and under limit - allow check-in
+            console.log(`✅ User can check in (${totalCheckInsToday}/1 check-ins used)`);
+            setIsCheckedIn(false);
+            setAttendanceId(null);
+            setCheckIn(null);
+            setalreadycheckedin(false); // Allow check-in
+          }
         }
+
+        setisButtonLoading(false);
       } catch (err) {
         console.error('Error in loadCurrentAttendance:', err);
         setError(handleSupabaseError(err));
@@ -558,6 +603,82 @@ const Attendance: React.FC = () => {
 
     loadCurrentAttendance();
   }, []);
+
+  // Function to refresh current attendance status
+  const refreshCurrentAttendanceStatus = async () => {
+    if (!user) return;
+
+    try {
+      const today = new Date();
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      );
+      const endOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        23,
+        59,
+        59
+      );
+
+      // Get all attendance records for today
+      const { data: allTodayRecords, error } = await supabase
+        .from('attendance_logs')
+        .select('id, check_in, check_out')
+        .eq('user_id', localStorage.getItem('user_id'))
+        .gte('check_in', startOfDay.toISOString())
+        .lte('check_in', endOfDay.toISOString())
+        .order('check_in', { ascending: false });
+
+      if (error) {
+        console.error('Error refreshing attendance status:', error);
+        return;
+      }
+
+      const totalCheckInsToday = allTodayRecords?.length || 0;
+
+      // Check if user has reached the daily limit of 1 check-in
+      if (totalCheckInsToday >= 1) {
+        // Check if there's an active session
+        const activeSession = allTodayRecords?.find(record => record.check_out === null);
+
+        if (activeSession) {
+          // User has an active session
+          setIsCheckedIn(true);
+          setAttendanceId(activeSession.id);
+          setCheckIn(activeSession.check_in);
+          setalreadycheckedin(false); // Allow check-out
+        } else {
+          // User has completed 1 check-in for the day
+          setIsCheckedIn(false);
+          setAttendanceId(null);
+          setCheckIn(null);
+          setalreadycheckedin(true); // Prevent further check-ins
+        }
+      } else {
+        // User hasn't reached the limit, check for active session
+        const activeSession = allTodayRecords?.find(record => record.check_out === null);
+
+        if (activeSession) {
+          // User has an active session
+          setIsCheckedIn(true);
+          setAttendanceId(activeSession.id);
+          setCheckIn(activeSession.check_in);
+        } else {
+          // No active session and under limit - allow check-in
+          setIsCheckedIn(false);
+          setAttendanceId(null);
+          setCheckIn(null);
+          setalreadycheckedin(false); // Allow check-in
+        }
+      }
+    } catch (err) {
+      console.error('Error in refreshCurrentAttendanceStatus:', err);
+    }
+  };
 
   // Checking Today Leave For the User , If the User is Leave For Today , then Disable Its Checkin Button
   const checkAbsenteeStatus = async () => {
@@ -605,16 +726,14 @@ const Attendance: React.FC = () => {
       );
 
       // Checking whether the user has already checked in today
-      const { data, error } = await withRetry(() =>
-        supabase
-          .from('extrahours')
-          .select('id, check_in, check_out')
-          .eq('user_id', localStorage.getItem('user_id'))
-          .gte('check_in', startOfDay.toISOString())
-          .lte('check_in', endOfDay.toISOString())
-          .is('check_out', null)
-          .order('check_in', { ascending: false })
-      );
+      const { data, error } = await supabase
+        .from('extrahours')
+        .select('id, check_in, check_out')
+        .eq('user_id', localStorage.getItem('user_id'))
+        .gte('check_in', startOfDay.toISOString())
+        .lte('check_in', endOfDay.toISOString())
+        .is('check_out', null)
+        .order('check_in', { ascending: false });
 
       if (error) {
         if (error.code !== 'PGRST116') {
@@ -672,15 +791,13 @@ const Attendance: React.FC = () => {
       }
 
       // Fetch attendance records
-      const { data: records, error: recordsError } = await withRetry(() =>
-        supabase
-          .from('attendance_logs')
-          .select('*')
-          .eq('user_id', localStorage.getItem('user_id'))
-          .gte('check_in', `${startDate}T00:00:00Z`)
-          .lt('check_in', `${endDate}T23:59:59Z`)
-          .order('check_in', { ascending: false })
-      );
+      const { data: records, error: recordsError } = await supabase
+        .from('attendance_logs')
+        .select('*')
+        .eq('user_id', localStorage.getItem('user_id'))
+        .gte('check_in', `${startDate}T00:00:00Z`)
+        .lt('check_in', `${endDate}T23:59:59Z`)
+        .order('check_in', { ascending: false });
 
       if (recordsError) throw recordsError;
 
@@ -738,10 +855,10 @@ const Attendance: React.FC = () => {
               setIsOnBreak(true);
               setBreakTime(previousBreak.start_time); // Record when the break started
             } else {
-              // Otherwise, user is not on break.
+              // Otherwise, user is not on break and can start another break.
               setIsOnBreak(false);
               setBreakTime(null);
-              setalreadybreak(true);
+              // Removed setalreadybreak(true) to allow multiple breaks per day
             }
           } else {
             // If no breaks exist for this attendance record, user is not on break.
@@ -791,6 +908,40 @@ const Attendance: React.FC = () => {
       return;
     }
 
+    // DOUBLE CHECK: Verify daily limit before proceeding
+    try {
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
+      const { data: todayRecords, error: checkError } = await supabase
+        .from('attendance_logs')
+        .select('id')
+        .eq('user_id', localStorage.getItem('user_id'))
+        .gte('check_in', startOfDay.toISOString())
+        .lte('check_in', endOfDay.toISOString());
+
+      if (checkError) {
+        console.error('Error checking daily limit:', checkError);
+        setError('Failed to verify daily limit');
+        return;
+      }
+
+      const totalCheckInsToday = todayRecords?.length || 0;
+      console.log(`🔍 DOUBLE CHECK: User has ${totalCheckInsToday} check-ins today`);
+
+      if (totalCheckInsToday >= 1) {
+        console.log('🚫 BLOCKED: Daily limit of 1 check-in reached');
+        setError('Daily limit reached: You can only check-in once per day');
+        setalreadycheckedin(true);
+        return;
+      }
+    } catch (err) {
+      console.error('Error in daily limit check:', err);
+      setError('Failed to verify daily limit');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -836,21 +987,19 @@ const Attendance: React.FC = () => {
       }
 
       // Insert attendance record
-      const { data, error: dbError } = await withRetry(() =>
-        supabase
-          .from('attendance_logs')
-          .insert([
-            {
-              user_id: localStorage.getItem('user_id'),
-              work_mode: workMode,
-              latitude,
-              longitude,
-              status,
-            },
-          ])
-          .select()
-          .single()
-      );
+      const { data, error: dbError } = await supabase
+        .from('attendance_logs')
+        .insert([
+          {
+            user_id: localStorage.getItem('user_id'),
+            work_mode: workMode,
+            latitude,
+            longitude,
+            status,
+          },
+        ])
+        .select()
+        .single();
 
       if (dbError) throw dbError;
 
@@ -915,6 +1064,12 @@ const Attendance: React.FC = () => {
     setIsCheckoutModalOpen(true);
   };
 
+  // Handle skip checkout - proceed without saving daily update
+  const handleSkipCheckout = () => {
+    setIsCheckoutModalOpen(false);
+    processCheckout();
+  };
+
   // Process the actual checkout after modal interaction
   const processCheckout = async () => {
     if (!user || !attendanceId) {
@@ -930,17 +1085,15 @@ const Attendance: React.FC = () => {
 
       // First, end any ongoing breaks
       if (isOnBreak) {
-        const { error: breakError } = await withRetry(() =>
-          supabase
-            .from('breaks')
-            .update({
-              end_time: now.toISOString(),
-              status: 'on_time',
-              ending: 'auto',
-            })
-            .eq('attendance_id', attendanceId)
-            .is('end_time', null)
-        );
+        const { error: breakError } = await supabase
+          .from('breaks')
+          .update({
+            end_time: now.toISOString(),
+            status: 'on_time',
+            ending: 'auto',
+          })
+          .eq('attendance_id', attendanceId)
+          .is('end_time', null);
 
         if (breakError) throw breakError;
 
@@ -953,64 +1106,68 @@ const Attendance: React.FC = () => {
       const todayDate = today.toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
 
       // 1️⃣ Check if there is already an attendance record for the user today
-      const { data: attendanceData, error: attendanceError } = await withRetry(
-        () =>
-          supabase
-            .from('attendance_logs')
-            .select('check_in, check_out, created_at')
-            .eq('user_id', localStorage.getItem('user_id'))
-            .filter('created_at', 'gte', `${todayDate}T00:00:00+00`) // Filter records from the start of today
-            .filter('created_at', 'lte', `${todayDate}T23:59:59+00`) // Filter records until the end of today
-      );
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance_logs')
+        .select('check_in, check_out, created_at')
+        .eq('user_id', localStorage.getItem('user_id'))
+        .filter('created_at', 'gte', `${todayDate}T00:00:00+00`) // Filter records from the start of today
+        .filter('created_at', 'lte', `${todayDate}T23:59:59+00`); // Filter records until the end of today
 
       if (attendanceError) throw attendanceError;
 
-      // If both check_in and check_out exist for today, skip further actions
-      if (
-        attendanceData?.length > 0 &&
-        attendanceData[0].check_in &&
-        attendanceData[0].check_out
-      ) {
-        console.log(
-          'Both check-in and check-out available for today. No further action needed.'
-        );
+      // Check if there are any ACTIVE (unchecked-out) sessions
+      const activeSession = attendanceData?.find(record => record.check_out === null);
+
+      if (!activeSession) {
+        console.log('No active session found - user is not checked in');
+
+        // Reset UI state properly
+        setIsCheckedIn(false);
+        setCheckIn(null);
+        setWorkMode(null);
+        setAttendanceId(null);
+
+        // Reload attendance records to reflect current state
+        await loadAttendanceRecords();
+
         setLoading(false);
         return;
       }
 
+      console.log('Found active session for checkout:', activeSession);
+
       // Then update the attendance record with check-out time
-      const { error: dbError } = await withRetry(() =>
-        supabase
-          .from('attendance_logs')
-          .update({
-            check_out: now.toISOString(),
-          })
-          .eq('id', attendanceId)
-          .is('check_out', null)
-      );
+      const { error: dbError } = await supabase
+        .from('attendance_logs')
+        .update({
+          check_out: now.toISOString(),
+        })
+        .eq('id', attendanceId)
+        .is('check_out', null);
 
       if (dbError) throw dbError;
+
+      console.log('Successfully checked out. Resetting UI state.');
 
       // Reset all states
       setIsCheckedIn(false);
       setCheckIn(null);
       setWorkMode(null);
       setAttendanceId(null);
+      setalreadycheckedin(false); // Allow user to check in again
 
       console.log("Today's Date:", todayDate);
       console.log('Attendance Data:', attendanceData);
 
       // 2️⃣ Calculate total attendance duration (in hours)
-      const { data: checkInData, error: checkInError } = await withRetry(() =>
-        supabase
-          .from('attendance_logs')
-          .select('check_in')
-          .eq('user_id', localStorage.getItem('user_id'))
-          .filter('created_at', 'gte', `${todayDate}T00:00:00+00`) // Filter records from the start of today
-          .filter('created_at', 'lte', `${todayDate}T23:59:59+00`) // Filter records until the end of today
-          .limit(1)
-          .single()
-      );
+      const { data: checkInData, error: checkInError } = await supabase
+        .from('attendance_logs')
+        .select('check_in')
+        .eq('user_id', localStorage.getItem('user_id'))
+        .filter('created_at', 'gte', `${todayDate}T00:00:00+00`) // Filter records from the start of today
+        .filter('created_at', 'lte', `${todayDate}T23:59:59+00`) // Filter records until the end of today
+        .limit(1)
+        .single();
 
       if (checkInError) throw checkInError;
 
@@ -1066,6 +1223,9 @@ const Attendance: React.FC = () => {
 
       // Reload attendance records to show the updated data
       await loadAttendanceRecords();
+
+      // Refresh current attendance status to allow new check-in
+      await refreshCurrentAttendanceStatus();
     } catch (err) {
       setError(handleSupabaseError(err));
     } finally {
@@ -1088,15 +1248,13 @@ const Attendance: React.FC = () => {
 
       if (!isOnBreak) {
         // Starting break
-        const { error: dbError } = await withRetry(() =>
-          supabase.from('breaks').insert([
-            {
-              attendance_id: attendanceId,
-              start_time: now.toISOString(),
-              status: 'on_time',
-            },
-          ])
-        );
+        const { error: dbError } = await supabase.from('breaks').insert([
+          {
+            attendance_id: attendanceId,
+            start_time: now.toISOString(),
+            status: 'on_time',
+          },
+        ]);
 
         if (dbError) throw dbError;
 
@@ -1109,16 +1267,14 @@ const Attendance: React.FC = () => {
           breakStatus = 'late';
         }
 
-        const { error: dbError } = await withRetry(() =>
-          supabase
-            .from('breaks')
-            .update({
-              end_time: now.toISOString(),
-              status: breakStatus,
-            })
-            .eq('attendance_id', attendanceId)
-            .is('end_time', null)
-        );
+        const { error: dbError } = await supabase
+          .from('breaks')
+          .update({
+            end_time: now.toISOString(),
+            status: breakStatus,
+          })
+          .eq('attendance_id', attendanceId)
+          .is('end_time', null);
 
         if (dbError) throw dbError;
 
@@ -1413,7 +1569,7 @@ const Attendance: React.FC = () => {
         onClose={() => setIsTaskModalOpen(false)}
         onApply={handleApplyTasks}
         onSkip={handleSkipTasks}
-        userId={localStorage.getItem('user_id')} // Pass the current user's ID from localStorage
+        userId={localStorage.getItem('user_id') || ''} // Pass the current user's ID from localStorage
       />
 
       {/* Checkout Daily Update Modal */}
@@ -1421,9 +1577,11 @@ const Attendance: React.FC = () => {
         isOpen={isCheckoutModalOpen}
         onClose={() => {
           setIsCheckoutModalOpen(false);
-          processCheckout(); // Still proceed with checkout if modal is closed
+          // X button closes modal but does NOT check out - user remains checked in
         }}
         onSubmit={handleCheckoutTaskSubmit}
+        onSkip={handleSkipCheckout}
+        userId={localStorage.getItem('user_id') || ''}
       />
 
       {/* Task Detail Modal */}
@@ -1454,6 +1612,31 @@ const Attendance: React.FC = () => {
           {error && (
             <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4">
               {error}
+            </div>
+          )}
+
+          {alreadycheckedin && !isCheckedIn && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg
+                    className="h-5 w-5 text-red-400"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">
+                    <strong>🚫 Daily Limit Reached:</strong> You have completed your check-in for today. The check-in button is now disabled. Please try again tomorrow.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1539,7 +1722,7 @@ const Attendance: React.FC = () => {
 
               <button
                 onClick={handleBreak}
-                disabled={loading || isbreak || alreadybreak}
+                disabled={loading || isbreak}
                 className={`w-full py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 ${isOnBreak
                   ? 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500'
                   : 'bg-[#9A00FF] text-white hover:bg-[#9A00FF] focus:ring-[#9A00FF]'

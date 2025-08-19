@@ -38,6 +38,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [newTaskScore, setNewTaskScore] = useState('');
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [isEditingTaskSummary, setIsEditingTaskSummary] = useState(false);
 
@@ -203,6 +204,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
       setShowCreateTask(false);
       setNewTaskTitle('');
       setNewTaskDescription('');
+      setNewTaskScore('');
       setIsEditingTaskSummary(false); // Reset edit mode when modal opens
       setTimeout(() => {
         inputRef.current?.focus();
@@ -300,7 +302,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
           description: newTaskDescription.trim() || null,
           status: 'todo',
           project_id: selectedProject.id,
-          devops: [{ id: userId, name: userName }]
+          devops: [{ id: userId, name: userName }],
+          score: newTaskScore ? parseInt(newTaskScore) : 0
         })
         .select()
         .single();
@@ -314,6 +317,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
       // Reset form
       setNewTaskTitle('');
       setNewTaskDescription('');
+      setNewTaskScore('');
       setShowCreateTask(false);
     } catch (error) {
       console.error('Error creating task:', error);
@@ -528,8 +532,16 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
                   value={newTaskDescription}
                   onChange={(e) => setNewTaskDescription(e.target.value)}
                   placeholder="Task description (optional)"
-                  className="w-full p-3 border-2 border-gray-200 rounded-lg mb-4 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all resize-none"
+                  className="w-full p-3 border-2 border-gray-200 rounded-lg mb-3 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all resize-none"
                   rows={2}
+                />
+                <input
+                  type="number"
+                  value={newTaskScore}
+                  onChange={(e) => setNewTaskScore(e.target.value)}
+                  placeholder="Task KPI/Score (optional)"
+                  className="w-full p-3 border-2 border-gray-200 rounded-lg mb-4 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all"
+                  min="0"
                 />
                 <div className="flex justify-end space-x-3">
                   <button
@@ -619,7 +631,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer Section*/}
         <div className="px-6 py-4 bg-gradient-to-t from-gray-50 to-white border-t border-gray-100 flex justify-end space-x-3">
           <button
             onClick={onSkip}

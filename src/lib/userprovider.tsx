@@ -26,7 +26,7 @@ export const UserProvider: React.FC<MyProviderProps> = ({ children }) => {
       // First, get the current user's profile to get their organization_id
       const { data: userprofile, error: profileerror } = await supabase
         .from("users")
-        .select("id, role, organization_id")
+        .select("id, role, organizationId")
         .eq("id", currentuser?.id)
         .single();
 
@@ -42,14 +42,28 @@ export const UserProvider: React.FC<MyProviderProps> = ({ children }) => {
       // Filter users: exclude current user AND only include users from same organization
       let filteredusers = users.filter((user) =>
         user.id !== currentuser?.id &&
-        user.organization_id === userprofile?.organization_id
+        (user.organizationId || user.organization_id) === (userprofile?.organizationId || userprofile?.organization_id)
       );
 
-      console.log(filteredusers);
-      setChatUsers(filteredusers);
-      console.log(`Total users fetched: ${filteredusers?.length || 0}`);
+      // Transform user data to match expected format
+      const transformedUsers = filteredusers.map(user => ({
+        id: user.id,
+        email: user.email,
+        full_name: user.fullName || user.full_name,
+        role: user.role,
+        department: user.department,
+        organization_id: user.organizationId || user.organization_id,
+        profile_image: user.profileImage || user.profile_image,
+        created_at: user.createdAt || user.created_at,
+        updated_at: user.updatedAt || user.updated_at
+      }));
+
+      console.log(transformedUsers);
+      setChatUsers(transformedUsers);
+      console.log(`Total users fetched: ${transformedUsers?.length || 0}`);
     } catch (error) {
       console.error('Error fetching users:', error);
+      setChatUsers([]);
     }
   }
 

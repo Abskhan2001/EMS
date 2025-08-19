@@ -30,19 +30,26 @@ function AdminRoute({ children }: AdminRouteProps) {
         return;
       }
 
-      // Fallback: Direct database query
+      // Fallback: Direct API query
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', currentUser.id)
-          .single();
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users/${currentUser.id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-        if (error) {
-          console.error('Error fetching user role:', error);
-          setUserRole(null);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.user) {
+            setUserRole(data.user.role || null);
+          } else {
+            setUserRole(null);
+          }
         } else {
-          setUserRole(data?.role || null);
+          console.error('Error fetching user role:', response.status, response.statusText);
+          setUserRole(null);
         }
       } catch (error) {
         console.error('Error checking user role:', error);
@@ -252,19 +259,26 @@ export function EmployeeRoute({ children }: EmployeeRouteProps) {
         return;
       }
 
-      // Fallback: Direct database query
+      // Fallback: Direct API query
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', currentUser.id)
-          .single();
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users/${currentUser.id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-        if (error) {
-          console.error('Error fetching user role:', error);
-          setUserRole(null);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.user) {
+            setUserRole(data.user.role || null);
+          } else {
+            setUserRole(null);
+          }
         } else {
-          setUserRole(data?.role || null);
+          console.error('Error fetching user role:', response.status, response.statusText);
+          setUserRole(null);
         }
       } catch (error) {
         console.error('Error checking user role:', error);

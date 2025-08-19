@@ -336,6 +336,8 @@ import Updates from './pages/Updates';
 import Employeeprofile from './pages/Employeeprofile';
 import globalStore from './store';
 import TaskBoardAdmin from './components/TaskBoardAdmin';
+import ErrorBoundary from './components/ErrorBoundary';
+import { websocketService } from './services/websocketService';
 
 // Wrapper components for SuperAdmin routing
 const OrganizationsWrapper: React.FC = () => {
@@ -401,6 +403,20 @@ const OrganizationDetailWrapper: React.FC = () => {
 function App() {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
+
+  // Initialize WebSocket connection when user is authenticated
+  useEffect(() => {
+    if (user) {
+      websocketService.connect().catch(console.error);
+    } else {
+      websocketService.disconnect();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      websocketService.disconnect();
+    };
+  }, [user]);
 
   // Initialize chat state
   const [chatperson, setchatperson] = useState<boolean>(false);
@@ -477,9 +493,10 @@ function App() {
   };
 
   return (
-    <AuthProvider>
-      <Provider store={globalStore}>
-        <UserProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Provider store={globalStore}>
+          <UserProvider>
           <Toaster />
           <Router>
             {/* Chat Sidebar - LinkedIn style */}
@@ -671,6 +688,7 @@ function App() {
         </UserProvider>
       </Provider>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -45,17 +45,41 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users/${user.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        setUserProfile(null);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.user) {
+          // Transform the data to match expected interface
+          const transformedData = {
+            id: result.user._id || result.user.id,
+            email: result.user.email,
+            full_name: result.user.fullName || result.user.full_name,
+            role: result.user.role,
+            department: result.user.department,
+            position: result.user.position || '',
+            phone: result.user.phone || '',
+            address: result.user.address || '',
+            hire_date: result.user.hireDate || result.user.hire_date || '',
+            salary: result.user.salary || 0,
+            created_at: result.user.createdAt || result.user.created_at,
+            updated_at: result.user.updatedAt || result.user.updated_at,
+            organization_id: result.user.organizationId || result.user.organization_id
+          };
+          setUserProfile(transformedData);
+        } else {
+          console.error('Error fetching user profile: Invalid response');
+          setUserProfile(null);
+        }
       } else {
-        setUserProfile(data);
+        console.error('Error fetching user profile:', response.status, response.statusText);
+        setUserProfile(null);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);

@@ -1,175 +1,182 @@
-import { createClient } from '@supabase/supabase-js';
-import { Database } from './database.types';
+// Import our API client instead of Supabase
+import { apiClient, handleApiError as handleSupabaseError, withRetry, checkConnection } from './apiClient';
+import { websocketService, createRealtimeChannel } from '../services/websocketService';
+import { authService } from '../services/authService';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+// Declare global auth state callbacks
+declare global {
+  interface Window {
+    authStateCallbacks?: Array<(event: string, session: any) => void>;
+  }
 }
 
-// Configure Supabase client with extended session persistence
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    // Extend session storage to prevent auto-logout
-    storage: {
-      getItem: (key: string) => {
-        if (typeof window !== 'undefined') {
-          return window.localStorage.getItem(key);
-        }
-        return null;
-      },
-      setItem: (key: string, value: string) => {
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(key, value);
-        }
-      },
-      removeItem: (key: string) => {
-        if (typeof window !== 'undefined') {
-          window.localStorage.removeItem(key);
-        }
-      },
-    },
-    // Set storage key to ensure consistent session storage
-    storageKey: 'supabase.auth.token',
-    // Disable automatic sign out on tab close
-    flowType: 'pkce',
-  },
-  global: {
-    headers: {
-      'x-application-name': 'etams',
-    },
-    // Add fetch options for better network handling
-    fetch: (url, options) => {
-      return fetch(url, {
-        ...options,
-        // Add timeout to prevent hanging requests
-        signal: AbortSignal.timeout(30000), // 30 second timeout
-      });
-    },
-  },
-  db: {
-    schema: 'public',
-  },
-  // Add realtime subscription options
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-});
-
-// Enhanced error handling with more specific messages
-export const handleSupabaseError = (error: unknown): string => {
-  if (error instanceof Error) {
-    // Network errors
-    if (error.message === 'Failed to fetch') {
-      return 'Connection error. Please check your internet connection and try again.';
-    }
-    if (error.message.includes('timeout')) {
-      return 'Request timed out. Please try again.';
-    }
-    if (error.message.includes('abort')) {
-      return 'Request was cancelled. Please try again.';
-    }
-
-    // Auth errors
-    if (error.message.includes('auth')) {
-      return 'Authentication error. Please sign in again.';
-    }
-
-    // Database errors
-    if (error.message.includes('duplicate key')) {
-      return 'This record already exists.';
-    }
-    if (error.message.includes('foreign key')) {
-      return 'Invalid reference to another record.';
-    }
-
-    // Return the original error message if none of the above
-    return error.message;
+// Helper function to trigger auth state changes
+const triggerAuthStateChange = (event: string, session: any) => {
+  if (window.authStateCallbacks) {
+    window.authStateCallbacks.forEach(callback => {
+      try {
+        callback(event, session);
+      } catch (error) {
+        console.error('Error in auth state callback:', error);
+      }
+    });
   }
-
-  // Handle Supabase-specific error objects
-  if (typeof error === 'object' && error !== null) {
-    const supabaseError = error as {
-      message?: string;
-      details?: string;
-      hint?: string;
-    };
-    return (
-      supabaseError.message ||
-      supabaseError.details ||
-      supabaseError.hint ||
-      'An unexpected error occurred'
-    );
-  }
-
-  return 'An unexpected error occurred';
 };
 
-// Enhanced retry wrapper with exponential backoff
-export async function withRetry<T>(
-  operation: () => Promise<T>,
-  maxRetries = 3,
-  initialDelay = 1000
-): Promise<T> {
-  let lastError: unknown;
+// Enhanced API client with WebSocket support
+const enhancedApiClient = {
+  ...apiClient,
 
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error;
+  // Add auth methods
+  auth: {
+    signUp: authService.signUp.bind(authService),
+    signInWithPassword: authService.signInWithPassword.bind(authService),
+    signOut: authService.signOut.bind(authService),
+    getSession: authService.getSession.bind(authService),
 
-      // Don't retry if it's not a network error
-      if (
-        error instanceof Error &&
-        !error.message.includes('Failed to fetch') &&
-        !error.message.includes('timeout') &&
-        !error.message.includes('network')
-      ) {
-        throw error;
+    // Auth state change listener (compatibility method)
+    onAuthStateChange: (callback: (event: string, session: any) => void) => {
+      // Store the callback for later use
+      if (!window.authStateCallbacks) {
+        window.authStateCallbacks = [];
       }
+      window.authStateCallbacks.push(callback);
 
-      // Calculate delay with exponential backoff
-      const delay = initialDelay * Math.pow(2, i);
+      // Return subscription object for compatibility
+      return {
+        data: {
+          subscription: {
+            unsubscribe: () => {
+              if (window.authStateCallbacks) {
+                const index = window.authStateCallbacks.indexOf(callback);
+                if (index > -1) {
+                  window.authStateCallbacks.splice(index, 1);
+                }
+              }
+            }
+          }
+        }
+      };
+    },
 
-      // Add some jitter to prevent thundering herd
-      const jitter = Math.random() * 200;
+    // Get current user
+    getUser: async () => {
+      const { data: { session } } = await authService.getSession();
+      return {
+        data: { user: session?.user || null },
+        error: null
+      };
+    }
+  },
 
-      // Wait before retrying, but don't wait on the last attempt
-      if (i < maxRetries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, delay + jitter));
+  // Add WebSocket channel functionality
+  channel: (channelName: string) => {
+    return createRealtimeChannel(channelName);
+  },
+
+  // Add removeChannel method for compatibility
+  removeChannel: (channel: any) => {
+    if (channel && typeof channel.unsubscribe === 'function') {
+      channel.unsubscribe();
+    }
+  },
+
+  // Initialize WebSocket connection
+  connect: () => {
+    return websocketService.connect();
+  },
+
+  // Disconnect WebSocket
+  disconnect: () => {
+    websocketService.disconnect();
+  }
+};
+
+// Export the enhanced API client as supabase for backward compatibility
+export const supabase = enhancedApiClient;
+
+// Create admin client with additional admin methods
+export const supabaseAdmin = {
+  ...apiClient,
+  auth: {
+    ...apiClient.auth,
+    admin: {
+      createUser: async (userData: any) => {
+        try {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/auth/admin/create-user`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            },
+            body: JSON.stringify(userData)
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            return { data: null, error: new Error(data.message || 'Failed to create user') };
+          }
+
+          return {
+            data: {
+              user: {
+                id: data.data.user.id,
+                email: data.data.user.email,
+                ...data.data.user
+              }
+            },
+            error: null
+          };
+        } catch (error: any) {
+          return { data: null, error: new Error(error.message || 'Failed to create user') };
+        }
+      },
+
+      deleteUser: async (userId: string) => {
+        try {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/auth/admin/delete-user/${userId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            return { error: new Error(data.message || 'Failed to delete user') };
+          }
+
+          return { error: null };
+        } catch (error: any) {
+          return { error: new Error(error.message || 'Failed to delete user') };
+        }
+      },
+
+      inviteUserByEmail: async (email: string, options?: any) => {
+        try {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/auth/admin/invite-user`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            },
+            body: JSON.stringify({ email, ...options })
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            return { error: new Error(data.message || 'Failed to invite user') };
+          }
+
+          return { error: null };
+        } catch (error: any) {
+          return { error: new Error(error.message || 'Failed to invite user') };
+        }
       }
     }
   }
+};
 
-  throw lastError;
-}
-
-// Add a helper to check connection status
-export async function checkConnection(): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('count')
-      .limit(1);
-    return !error && data !== null;
-  } catch {
-    return false;
-  }
-}
-export const supabaseAdmin = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
+// Export utility functions from apiClient
+export { handleSupabaseError, withRetry, checkConnection };

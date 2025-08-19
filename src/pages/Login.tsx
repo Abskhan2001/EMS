@@ -26,17 +26,8 @@ const Login: React.FC = () => {
       if (session?.user) {
         setUser(session.user);
 
-        // Fetch user profile to determine role
-        const { data: userProfile, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error) {
-          navigate('/', { replace: true });
-          return;
-        }
+        // The user profile is already included in the session from our API
+        const userProfile = session.user;
         setUserProfile(userProfile);
 
         setTimeout(() => {
@@ -72,31 +63,18 @@ const Login: React.FC = () => {
         });
 
       if (signInError) {
-        if (signInError.message.includes('Invalid login credentials')) {
+        if (signInError.message.includes('Invalid login credentials') || signInError.message.includes('Invalid User')) {
           setError('Invalid User, Please Check Your Email and Password');
         } else {
           throw signInError;
         }
-      } else if (authData.user) {
+      } else if (authData?.user) {
         setUser(authData.user);
 
-        // Fetch user profile from database
-        const { data: userProfile, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
+        // The user profile is already included in the auth response from our API
+        const userProfile = authData.user;
 
-        if (profileError) {
-          setError('Error loading user profile');
-          return;
-        }
-
-        // Store session and metadata for persistence
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          localStorage.setItem('supabaseSession', JSON.stringify(session));
-        }
+        // Store user metadata for persistence (our auth service already handles tokens)
         localStorage.setItem('user_id', authData.user.id);
         localStorage.setItem('user_email', authData.user.email || '');
 

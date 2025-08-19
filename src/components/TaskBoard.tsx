@@ -8,6 +8,7 @@ import {
   Plus,
   LayoutGrid,
   Table2,
+  Edit3,
 } from 'lucide-react';
 import {
   DragDropContext,
@@ -97,6 +98,12 @@ function TaskBoard({
   const [isFullImageOpen, setIsFullImageOpen] = useState(false);
   const [fullImageUrl, setFullImageUrl] = useState('');
   const [view, setView] = useState<'card' | 'table'>('card');
+  const [isEditingTask, setIsEditingTask] = useState(false);
+  const [editTaskData, setEditTaskData] = useState({
+    title: '',
+    description: '',
+    score: 0
+  });
 
   // Fetch user role, project manager status, and project developers on component mount
   useEffect(() => {
@@ -633,6 +640,63 @@ function TaskBoard({
     setTasks([...tasks, newTask]);
     setNewTaskTitle('');
     setIsAddingTask(false);
+  };
+
+  // Function to start editing a task
+  const handleEditTask = (task: Task) => {
+    setEditTaskData({
+      title: task.title,
+      description: task.description || '',
+      score: task.score || 0
+    });
+    setIsEditingTask(true);
+  };
+
+  // Function to save edited task
+  const handleSaveTask = async () => {
+    if (!openedTask || !editTaskData.title.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks_of_projects')
+        .update({
+          title: editTaskData.title.trim(),
+          description: editTaskData.description.trim() || null,
+          score: editTaskData.score
+        })
+        .eq('id', openedTask.id);
+
+      if (error) throw error;
+
+      // Update the task in local state
+      const updatedTask = {
+        ...openedTask,
+        title: editTaskData.title.trim(),
+        description: editTaskData.description.trim() || null,
+        score: editTaskData.score
+      };
+
+      setTasks(tasks.map(task =>
+        task.id === openedTask.id ? updatedTask : task
+      ));
+      setOpenedTask(updatedTask);
+      setIsEditingTask(false);
+
+      console.log('Task updated successfully');
+    } catch (error) {
+      console.error('Error updating task:', error);
+      alert('Failed to update task. Please try again.');
+    }
+  };
+
+  // Function to cancel editing
+  const handleCancelEdit = () => {
+    setIsEditingTask(false);
+    setEditTaskData({
+      title: '',
+      description: '',
+      score: 0
+    });
   };
 
   // Handle developer selection for task assignment
@@ -1220,29 +1284,66 @@ function TaskBoard({
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-fade-in p-6 relative">
             {/* Modal Header */}
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {openedTask.title}
-              </h2>
+              {isEditingTask ? (
+                <input
+                  type="text"
+                  value={editTaskData.title}
+                  onChange={(e) => setEditTaskData({...editTaskData, title: e.target.value})}
+                  className="text-xl font-semibold text-gray-800 border-2 border-blue-500 rounded px-2 py-1 flex-1 mr-4"
+                  placeholder="Task title"
+                />
+              ) : (
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {openedTask.title}
+                </h2>
+              )}
               <div className="flex items-center gap-2">
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm flex items-center gap-1"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const textToCopy = `${openedTask.title}\n\n${
-                      openedTask.description || ''
-                    }`;
-                    navigator.clipboard.writeText(textToCopy);
-                    alert('Title and description copied to clipboard!');
-                  }}
-                >
-                  Copy Text
-                </button>
+                {isEditingTask ? (
+                  <>
+                    <button
+                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                      onClick={handleSaveTask}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+                      onClick={handleCancelEdit}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm flex items-center gap-1"
+                      onClick={() => handleEditTask(openedTask)}
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-sm flex items-center gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const textToCopy = `${openedTask.title}\n\n${
+                          openedTask.description || ''
+                        }`;
+                        navigator.clipboard.writeText(textToCopy);
+                        alert('Title and description copied to clipboard!');
+                      }}
+                    >
+                      Copy Text
+                    </button>
+                  </>
+                )}
                 <button
                   className="text-gray-400 hover:text-gray-600"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDescriptionOpen(false);
                     setOpenedTask(null);
+                    setIsEditingTask(false);
                   }}
                 >
                   <X className="w-6 h-6" />
@@ -1288,16 +1389,40 @@ function TaskBoard({
             )}
 
             {/* Description */}
-            {openedTask.description && (
-              <p className="text-sm text-gray-700 leading-relaxed mb-4">
-                {openedTask.description}
-              </p>
-            )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              {isEditingTask ? (
+                <textarea
+                  value={editTaskData.description}
+                  onChange={(e) => setEditTaskData({...editTaskData, description: e.target.value})}
+                  className="w-full p-3 border-2 border-blue-500 rounded-lg text-sm text-gray-700 leading-relaxed resize-none"
+                  rows={4}
+                  placeholder="Task description (optional)"
+                />
+              ) : (
+                <p className="text-sm text-gray-700 leading-relaxed p-3 bg-gray-50 rounded-lg min-h-[100px]">
+                  {openedTask.description || 'No description provided'}
+                </p>
+              )}
+            </div>
 
             {/* Info Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-gray-600 mb-6">
               <div>
-                <span className="font-semibold">KPIs:</span> {openedTask.score}
+                <span className="font-semibold">KPIs:</span>{' '}
+                {isEditingTask ? (
+                  <input
+                    type="number"
+                    value={editTaskData.score}
+                    onChange={(e) => setEditTaskData({...editTaskData, score: parseInt(e.target.value) || 0})}
+                    className="border border-gray-300 rounded px-2 py-1 w-20 ml-2"
+                    min="0"
+                  />
+                ) : (
+                  openedTask.score
+                )}
               </div>
               <div>
                 <span className="font-semibold">Developer:</span>{' '}

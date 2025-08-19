@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, CheckCircle, Building2, UserCircle } from 'lucide-react';
-import { supabase, supabaseAdmin, handleSupabaseError } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
 interface SignupModalProps {
@@ -80,171 +80,72 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
         setError('Organization name and slug are required');
         return;
       }
-
-      let createdUserId: string | null = null;
-      let createdOrgId: string | null = null;
-
-      try {
-        setStatus('loading');
-
-        // Step 1: Create the user with Supabase Admin (service role)
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: formData.email,
-          password: formData.password,
-          email_confirm: false,
-        });
-
-        if (authError) throw authError;
-        if (!authData.user) throw new Error('Failed to create user account');
-
-        createdUserId = authData.user.id;
-
-        try {
-          // Step 2: Manually send the confirmation email
-          const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-            formData.email,
-            {
-              redirectTo: `https://estrowork.vercel.app//login`,
-              data: {
-                full_name: formData.name,
-              }
-            }
-          );
-
-          if (inviteError) throw inviteError;
-
-          try {
-            // Step 3: Create organization in organizations table
-            const { data: orgData, error: orgError } = await supabase
-              .from('organizations')
-              .insert([
-                {
-                  name: formData.organizationName,
-                  slug: formData.organizationSlug,
-                  created_by: createdUserId
-                }
-              ])
-              .select();
-
-            if (orgError) throw orgError;
-            if (!orgData || orgData.length === 0) throw new Error('Failed to create organization');
-
-            createdOrgId = orgData[0].id;
-
-            try {
-              // Step 4: Update the user record with role='admin' and organization_id
-              const { error: updateError } = await supabase
-                .from('users')
-                .update({
-                  full_name: formData.name,
-                  role: 'admin',
-                  organization_id: createdOrgId
-                })
-                .eq('id', createdUserId);
-
-              if (updateError) throw updateError;
-
-              setStatus('success');
-              setShowSuccessAlert(true);
-
-            } catch (updateError) {
-              // Rollback: Delete the organization if user update fails
-              if (createdOrgId) {
-                await supabase
-                  .from('organizations')
-                  .delete()
-                  .eq('id', createdOrgId);
-              }
-              throw updateError;
-            }
-
-          } catch (orgError) {
-            // Organization creation or user update failed, no need to delete org as it wasn't created
-            throw orgError;
-          }
-
-        } catch (emailOrOrgError) {
-          // Rollback: Delete the user if email sending or any subsequent step fails
-          if (createdUserId) {
-            await supabaseAdmin.auth.admin.deleteUser(createdUserId);
-          }
-          throw emailOrOrgError;
-        }
-
-      } catch (error) {
-        setStatus('error');
-        console.log(error);
-        setError(handleSupabaseError(error));
-      }
-      return;
     }
-
-    // Only proceed with user creation for personal account type
-    let createdUserId: string | null = null;
 
     try {
       setStatus('loading');
+      setError(null);
 
-      // Step 1: Create the user with Supabase Admin (service role)
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: formData.email,
-        password: formData.password,
-        email_confirm: false,
-      });
+      if (formData.accountType === 'organization') {
+        // Organization signup flow
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Failed to create user account');
+        // Step 1: Create organization first
+        const orgResponse = await supabase
+          .from('organizations')
+          .insert({
+            name: formData.organizationName,
+            slug: formData.organizationSlug,
+            created_by: null // Will be updated after user creation
+          });
 
-      createdUserId = authData.user.id;
+        if (orgResponse.error) throw new Error(`Failed to create organization: ${orgResponse.error.message}`);
+        if (!orgResponse.data || orgResponse.data.length === 0) throw new Error('Failed to create organization');
 
-      try {
-        // Step 2: Manually send the confirmation email
-        const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-          formData.email,
-          {
-            redirectTo: `https://ems-one-mauve.vercel.app/login`,
-            data: {
-              full_name: formData.name,
-            }
-          }
-        );
+        const organizationId = orgResponse.data[0].id;
 
-        if (inviteError) throw inviteError;
+        // Step 2: Create user with admin role using the new backend API
+        const userResponse = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.name,
+          role: 'admin',
+          organizationId: organizationId
+        });
 
-        try {
-          // Step 3: Update the user record in the users table
-          const updateData: any = {
-            full_name: formData.name,
-            role: 'product manager',
-          };
+        if (userResponse.error) throw new Error(`Failed to create user: ${userResponse.error.message}`);
+        if (!userResponse.data?.user) throw new Error('Failed to create user account');
 
-          const { error: updateError } = await supabase
-            .from('users')
-            .update(updateData)
-            .eq('id', createdUserId);
+        // Step 3: Update organization with created_by
+        const updateOrgResponse = await supabase
+          .from('organizations')
+          .update({ created_by: userResponse.data.user.id })
+          .eq('id', organizationId);
 
-          if (updateError) throw updateError;
-
-          setStatus('success');
-          setShowSuccessAlert(true);
-
-        } catch (updateError) {
-          // User update failed, but user and email were sent
-          throw updateError;
+        if (updateOrgResponse.error) {
+          console.warn('Failed to update organization created_by:', updateOrgResponse.error);
         }
 
-      } catch (emailOrUpdateError) {
-        // Rollback: Delete the user if email sending or update fails
-        if (createdUserId) {
-          await supabaseAdmin.auth.admin.deleteUser(createdUserId);
-        }
-        throw emailOrUpdateError;
+      } else {
+        // Personal account signup flow using the new backend API
+        const userResponse = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.name,
+          role: 'employee'
+        });
+
+        if (userResponse.error) throw new Error(`Failed to create user: ${userResponse.error.message}`);
+        if (!userResponse.data?.user) throw new Error('Failed to create user account');
       }
 
-    } catch (error) {
+      setStatus('success');
+      setShowSuccessAlert(true);
+      setError(null);
+
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      setError(error.message || 'Failed to create account. Please try again.');
       setStatus('error');
-      console.log(error);
-      setError(handleSupabaseError(error));
     }
   };
 
