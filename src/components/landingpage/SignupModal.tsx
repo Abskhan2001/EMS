@@ -545,6 +545,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                               hasSubmitted && validationErrors.organizationSlug ? 'border-red-500' : 'border-gray-300'
                             }`}
                             placeholder="organization-slug"
+                            pattern="[a-z0-9\-]+"
                             required={formData.accountType === 'organization'}
                           />
                         </div>

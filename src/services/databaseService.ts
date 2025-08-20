@@ -209,6 +209,7 @@ class TableOperations<T> {
     // Map table names to API endpoints
     const tableEndpointMap: { [key: string]: string } = {
       'users': '/users',
+      'organizations': '/organizations',
       'attendance_logs': '/attendance',
       'tasks': '/tasks',
       'projects': '/projects',
@@ -240,7 +241,7 @@ class TableOperations<T> {
 
       if (response.data.success) {
         return {
-          data: response.data.data || response.data.item || response.data,
+          data: response.data.data || response.data.item || response.data.organization || response.data.user || response.data,
           error: null
         };
       } else {
