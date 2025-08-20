@@ -24,30 +24,53 @@ export const UserProvider: React.FC<MyProviderProps> = ({ children }) => {
   async function fetchAllUsers() {
     try {
       // First, get the current user's profile to get their organization_id
-      const { data: userprofile, error: profileerror } = await supabase
-        .from("users")
-        .select("id, role, organizationId")
-        .eq("id", currentuser?.id)
-        .single();
+      const userResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users/${currentuser?.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (profileerror) throw profileerror;
+      if (!userResponse.ok) {
+        throw new Error(`Failed to fetch user profile: ${userResponse.status}`);
+      }
 
-      // Then fetch all users
-      const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('*');
+      const userResult = await userResponse.json();
+      if (!userResult.success || !userResult.user) {
+        throw new Error('Failed to fetch user profile');
+      }
 
-      if (usersError) throw usersError;
+      const userprofile = {
+        id: userResult.user._id || userResult.user.id,
+        role: userResult.user.role,
+        organizationId: userResult.user.organizationId || userResult.user.organization_id
+      };
 
-      // Filter users: exclude current user AND only include users from same organization
-      let filteredusers = users.filter((user) =>
-        user.id !== currentuser?.id &&
-        (user.organizationId || user.organization_id) === (userprofile?.organizationId || userprofile?.organization_id)
+      // Then fetch all users from the same organization
+      const usersResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users?organizationId=${userprofile?.organizationId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!usersResponse.ok) {
+        throw new Error(`Failed to fetch users: ${usersResponse.status}`);
+      }
+
+      const usersResult = await usersResponse.json();
+      const users = usersResult.success && usersResult.users ? usersResult.users : [];
+
+      // Filter users: exclude current user
+      let filteredusers = (users || []).filter((user) =>
+        (user._id || user.id) !== currentuser?.id
       );
 
       // Transform user data to match expected format
-      const transformedUsers = filteredusers.map(user => ({
-        id: user.id,
+      const transformedUsers = (filteredusers || []).map(user => ({
+        id: user._id || user.id,
         email: user.email,
         full_name: user.fullName || user.full_name,
         role: user.role,
