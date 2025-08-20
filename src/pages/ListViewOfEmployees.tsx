@@ -476,16 +476,26 @@ const EmployeeAttendanceTable = () => {
   };
   //Extracting Hours and Minuates From the previously saved Checkout Time
   const parseCheckInTime = (checkInTime) => {
-    const regex = /(\d{2}):(\d{2})\s(AM|PM)/;
-    const match = checkInTime.match(regex);
-    if (match) {
-      const extractedHourin = parseInt(match[1], 10);
-      const extractedMinutein = parseInt(match[2], 10);
-      const extractedAMPMin = match[3];
+    try {
+      // Parse the ISO timestamp
+      const date = new Date(checkInTime);
+      if (isNaN(date.getTime())) {
+        console.error('Invalid check-in time:', checkInTime);
+        return;
+      }
 
-      setHourin(extractedHourin);
-      setMinutein(extractedMinutein);
-      setIsinAM(extractedAMPMin === 'AM');
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+
+      // Convert to 12-hour format
+      const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const isAM = hours < 12;
+
+      setHourin(hour12);
+      setMinutein(minutes);
+      setIsinAM(isAM);
+    } catch (error) {
+      console.error('Error parsing check-in time:', error);
     }
   };
   // Open modal and set the selected entry and default time
@@ -504,68 +514,81 @@ const EmployeeAttendanceTable = () => {
     setIsModalOpen(true);
   };
   const handleUpdateCheckInTime = async () => {
-    const originalDate = new Date(selectedEntry.created_at);
+    setSaveLoading(true);
+    setSaveError(null);
 
-    // Get UTC date components
-    const utcYear = originalDate.getUTCFullYear(); // 2025
-    const utcMonth = originalDate.getUTCMonth(); // 3 (April)
-    const utcDay = originalDate.getUTCDate(); // 9
+    try {
+      // Extract the date from selectedEntry.check_in2 (original check-in time)
+      const originalDate = new Date(selectedEntry.check_in2);
 
-    // Construct UTC date string
-    const utcDateString = `${utcYear}-${String(utcMonth + 1).padStart(
-      2,
-      '0'
-    )}-${String(utcDay).padStart(2, '0')}`;
-    // Result: "2025-04-09"
-    // Create new date in UTC
-    const adjustedHourin = isinAM ? hourin : (hourin + 12) % 24;
-    const newDate = new Date(
-      Date.UTC(
-        originalDate.getUTCFullYear(),
-        originalDate.getUTCMonth(),
-        originalDate.getUTCDate(),
-        adjustedHourin,
-        minutein
-      )
-    );
+      // Ensure originalDate is valid
+      if (isNaN(originalDate.getTime())) {
+        throw new Error('Invalid check-in date format.');
+      }
 
-    // Format timestamp correctly
-    const formattedTimestamp = newDate
-      .toISOString()
-      .replace('T', ' ')
-      .replace(/\.\d+Z$/, '.000+00');
+      const year = originalDate.getFullYear();
+      const month = originalDate.getMonth(); // Month is zero-indexed
+      const day = originalDate.getDate();
 
-    // Calculate status using UTC
-    const checkInTimeLimit = new Date(
-      Date.UTC(
-        newDate.getUTCFullYear(),
-        newDate.getUTCMonth(),
-        newDate.getUTCDate(),
-        9,
-        30 // 09:30 UTC
-      )
-    );
+      // Adjust for AM/PM (convert to 24-hour format if PM)
+      let adjustedHour = isinAM ? hourin : (hourin + 12) % 24;
 
-    const attendanceStatus = newDate > checkInTimeLimit ? 'late' : 'present';
-    console.log('origional Date', originalDate);
+      // Handle 12 AM and 12 PM cases
+      if (hourin === 12) {
+        adjustedHour = isinAM ? 0 : 12;
+      }
 
-    console.log('origional Date in api', utcDateString);
+      // Create a new Date object with the updated time but keeping the original date
+      const formattedDate = new Date(
+        year,
+        month,
+        day,
+        adjustedHour,
+        minutein,
+        0,
+        0
+      );
 
-    // Update with correct filtering
-    const { data, error } = await supabase
-      .from('attendance_logs')
-      .select('*')
-      .eq('created_at::date', utcDateString);
-    console.log('Fetched Data ', data);
+      // Convert the Date object to the required format [YYYY-MM-DD HH:MM:SS.000+00]
+      const timestamp = formattedDate.toISOString().replace('T', ' ').split('.')[0] + '.000+00';
 
-    if (!error) {
-      alert('Updated successfully!');
+      console.log('Updating check-in time to:', timestamp);
+
+      // Update the `check_in` field in the database
+      const { data, error } = await supabase
+        .from('attendance_logs')
+        .update({
+          check_in: timestamp,
+          status: formattedDate.getHours() > 9 || (formattedDate.getHours() === 9 && formattedDate.getMinutes() > 30) ? 'late' : 'present'
+        })
+        .eq('user_id', selectedEntry.id) // Ensure correct entry by user_id
+        .eq('check_in', selectedEntry.check_in2); // Match original check_in for that specific date
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Check-in time updated successfully:', data);
+
+      // Refresh the attendance data to show updated values
+      await fetchAttendanceData(selectedDate);
+
+      alert('Check-in time updated successfully!');
       setisCheckinModalOpen(false);
+
+    } catch (error) {
+      console.error('Error updating check-in time:', error);
+      setSaveError(error.message || 'Failed to update check-in time');
+      alert(`Error: ${error.message || 'Failed to update check-in time'}`);
+    } finally {
+      setSaveLoading(false);
     }
   };
 
   const handleCheckInCloseModal = () => {
     setisCheckinModalOpen(false);
+    setSaveError(null);
+    setSaveLoading(false);
   };
 
   const handleUpdateCheckOutTime = async () => {
@@ -748,8 +771,8 @@ const EmployeeAttendanceTable = () => {
           .select('*', { count: 'exact', head: true })
           .eq('user_id', userID)
           .eq('absentee_type', 'leave')
-          .gte('created_at', monthStart.toISOString())
-          .lte('created_at', monthEnd.toISOString());
+          .gte('absentee_date', monthStart.toISOString().split('T')[0])
+          .lte('absentee_date', monthEnd.toISOString().split('T')[0]);
 
         if (error) {
           console.log('Error Fetching Absentees Count', error);
@@ -802,9 +825,7 @@ const EmployeeAttendanceTable = () => {
         if (allLeaveRecords && allLeaveRecords.length > 0) {
           const uniqueDates = [
             ...new Set(
-              allLeaveRecords.map(
-                (req) => req.absentee_date || req.created_at.split('T')[0]
-              )
+              allLeaveRecords.map((req) => req.absentee_date).filter(Boolean)
             ),
           ].sort();
           console.log('🔍 Available leave dates:', uniqueDates);
@@ -826,31 +847,14 @@ const EmployeeAttendanceTable = () => {
         const orgUserIds = orgUsers.map((user) => user.id);
         console.log('🔍 Organization user IDs:', orgUserIds);
 
-        // Now fetch leave records from absentees table with proper filtering
-        // First try to get records with absentee_date matching today
-        const { data: leaveDataByDate, error: dateError } = await supabase
+        // Fetch leave records from absentees table using absentee_date only
+        // This ensures leaves appear on the actual leave date, not approval date
+        const { data: leaveData, error } = await supabase
           .from('absentees')
           .select('*')
           .eq('absentee_type', 'leave')
           .in('user_id', orgUserIds)
           .eq('absentee_date', today);
-
-        // If no records found by absentee_date, try by created_at date
-        let leaveData = leaveDataByDate;
-        if ((!leaveDataByDate || leaveDataByDate.length === 0) && !dateError) {
-          const { data: leaveDataByCreated, error: createdError } = await supabase
-            .from('absentees')
-            .select('*')
-            .eq('absentee_type', 'leave')
-            .in('user_id', orgUserIds)
-            .gte('created_at', `${today}T00:00:00`)
-            .lte('created_at', `${today}T23:59:59`);
-
-          leaveData = leaveDataByCreated;
-          console.log('🔍 Fallback query by created_at:', { data: leaveDataByCreated, error: createdError });
-        }
-
-        const error = dateError;
 
         console.log('🔍 Leave records query result:', {
           data: leaveData,
@@ -874,8 +878,7 @@ const EmployeeAttendanceTable = () => {
                 user_email: user?.email || 'No email',
                 status: 'approved', // Since it's already in absentees table
                 leave_type: record.absentee_Timing || 'Full Day',
-                leave_date:
-                  record.absentee_date || record.created_at.split('T')[0],
+                leave_date: record.absentee_date,
                 user_id: record.user_id,
                 organization_id: userprofile?.organization_id,
               };
@@ -2022,35 +2025,17 @@ const EmployeeAttendanceTable = () => {
         });
       }
 
-      // Fetch absentees for the selected date - check both absentee_date and created_at
-      const { data: absenteesByDate, error: absenteesByDateError } = await supabase
+      // Fetch absentees for the selected date using absentee_date only
+      // This ensures leaves appear on the actual leave date, not approval date
+      const { data: absentees, error: absenteesError } = await supabase
         .from('absentees')
         .select('user_id, absentee_type')
         .eq('absentee_date', formattedDate);
 
-      // Also fetch absentees by created_at as fallback
-      const { data: absenteesByCreated, error: absenteesByCreatedError } = await supabase
-        .from('absentees')
-        .select('user_id, absentee_type')
-        .gte('created_at', `${formattedDate}T00:00:00`)
-        .lte('created_at', `${formattedDate}T23:59:59`);
-
-      // Combine both results, prioritizing absentee_date matches
-      let absentees = [];
-      if (!absenteesByDateError && absenteesByDate) {
-        absentees = [...absenteesByDate];
-      }
-      if (!absenteesByCreatedError && absenteesByCreated) {
-        // Add records from created_at query that aren't already included
-        const existingUserIds = new Set(absentees.map(a => a.user_id));
-        const additionalAbsentees = absenteesByCreated.filter(a => !existingUserIds.has(a.user_id));
-        absentees = [...absentees, ...additionalAbsentees];
-      }
-
-      console.log('🔍 Fetched absentees for date:', formattedDate, 'Count:', absentees.length);
+      console.log('🔍 Fetched absentees for date:', formattedDate, 'Count:', absentees?.length || 0);
       console.log('🔍 Absentees data:', absentees);
 
-      if (absenteesByDateError && absenteesByCreatedError) throw absenteesByDateError;
+      if (absenteesError) throw absenteesError;
 
       // ✅ Fetch daily tasks for the selected date
       const { data: dailyTasks, error: taskError } = await supabase
@@ -3670,6 +3655,13 @@ const EmployeeAttendanceTable = () => {
                   </div>
                 </div>
 
+                {/* Error Display */}
+                {saveError && (
+                  <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {saveError}
+                  </div>
+                )}
+
                 {/* Buttons */}
                 <div className="flex justify-end mt-6">
                   <button
@@ -3680,9 +3672,14 @@ const EmployeeAttendanceTable = () => {
                   </button>
                   <button
                     onClick={handleUpdateCheckInTime}
-                    className="bg-blue-500 text-white px-6 py-2 rounded-lg ml-4 hover:bg-blue-600 transition"
+                    disabled={saveLoading}
+                    className={`px-6 py-2 rounded-lg ml-4 transition ${
+                      saveLoading
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-500 hover:bg-blue-600'
+                    } text-white`}
                   >
-                    Save
+                    {saveLoading ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </div>

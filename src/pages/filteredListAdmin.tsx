@@ -306,13 +306,13 @@ const FilteredDataAdmin: React.FC = ({ startdate, enddate, search }) => {
 
       if (attendanceError) throw attendanceError;
 
-      // Fetch absentees with absentee_timing and absentee_type
+      // Fetch absentees with absentee_timing and absentee_type using absentee_date
       const { data: absentees, error: absenteesError } = await supabase
         .from("absentees")
-        .select("created_at, absentee_Timing, absentee_type")
+        .select("absentee_date, absentee_Timing, absentee_type")
         .eq("user_id", userId)
-        .gte("created_at", startDateFormatted)
-        .lte("created_at", endDateFormatted);
+        .gte("absentee_date", startDateFormatted)
+        .lte("absentee_date", endDateFormatted);
 
       if (absenteesError) throw absenteesError;
 
@@ -327,9 +327,9 @@ const FilteredDataAdmin: React.FC = ({ startdate, enddate, search }) => {
           (a) => format(new Date(a.check_in), "yyyy-MM-dd") === dateStr
         );
 
-        // Find absentee record
+        // Find absentee record using absentee_date
         const absentee = absentees.find(
-          (a) => format(new Date(a.created_at), "yyyy-MM-dd") === dateStr
+          (a) => a.absentee_date === dateStr
         );
 
         let status = "Null"; // Default to present

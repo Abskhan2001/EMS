@@ -72,8 +72,8 @@ export default function DashboardCards() {
         .from('absentees')
         .select('*')
         .eq('user_id', currentUser?.id || localStorage.getItem('user_id'))
-        .gte('created_at', yearStart.toISOString())
-        .lte('created_at', yearEnd.toISOString());
+        .gte('absentee_date', yearStart.toISOString().split('T')[0])
+        .lte('absentee_date', yearEnd.toISOString().split('T')[0]);
       
       if (error) {
         console.error('Error fetching absentees:', error);
