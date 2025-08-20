@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../lib/store';
-import { useUser } from '../contexts/UserContext';
+import { authService } from '../services/authService';
 import { Clock, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
 const Login: React.FC = () => {
@@ -14,35 +12,45 @@ const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const isFocusedRef = useRef(false);
   const navigate = useNavigate();
-  const setUser = useAuthStore((state) => state.setUser);
-  const { setUserProfile } = useUser();
 
-  // 🔁 Redirect if already logged in
+  // Check if user is already logged in
   useEffect(() => {
     const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-
-        // The user profile is already included in the session from our API
-        const userProfile = session.user;
-        setUserProfile(userProfile);
-
-        setTimeout(() => {
-          if (userProfile?.role === 'superadmin') {
-            navigate('/superadmin', { replace: true });
-          } else if (userProfile?.role === 'admin') {
-            navigate('/admin', { replace: true });
-          } else {
-            navigate('/', { replace: true });
-          }
-        }, 100);
+      try {
+        const { data: { session } } = await authService.getSession();
+        
+        if (session?.user) {
+          // User is already logged in, redirect based on role
+          redirectBasedOnRole(session.user.role);
+        }
+      } catch (error) {
+        console.error('Session check failed:', error);
+        // Clear any invalid session data
+        localStorage.clear();
       }
     };
+    
     checkSession();
-  }, [navigate, setUser, setUserProfile]);
+  }, []);
+
+  const redirectBasedOnRole = (role: string) => {
+    setTimeout(() => {
+      switch (role) {
+        case 'superadmin':
+          navigate('/superadmin', { replace: true });
+          break;
+        case 'admin':
+          navigate('/admin', { replace: true });
+          break;
+        case 'user':
+          navigate('/user', { replace: true });
+          break;
+        default:
+          navigate('/', { replace: true });
+          break;
+      }
+    }, 100);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,51 +64,50 @@ const Login: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const { data: authData, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      // Login using your custom authService
+      const { data: authData, error: signInError } = await authService.signInWithPassword({
+        email,
+        password,
+      });
 
       if (signInError) {
-        if (signInError.message.includes('Invalid login credentials') || signInError.message.includes('Invalid User')) {
-          setError('Invalid User, Please Check Your Email and Password');
+        // Handle different error types
+        if (signInError.message.includes('Invalid login credentials') || 
+            signInError.message.includes('Invalid User') ||
+            signInError.message.includes('Invalid email or password')) {
+          setError('Invalid email or password. Please try again.');
+        } else if (signInError.message.includes('Account not verified')) {
+          setError('Please verify your email address before logging in.');
+        } else if (signInError.message.includes('Account suspended')) {
+          setError('Your account has been suspended. Please contact support.');
         } else {
-          throw signInError;
+          setError(signInError.message);
         }
-      } else if (authData?.user) {
-        setUser(authData.user);
+        return;
+      }
 
-        // The user profile is already included in the auth response from our API
-        const userProfile = authData.user;
+      if (authData?.user) {
+        // Login successful
+        console.log('Login successful:', authData.user);
 
-        // Store user metadata for persistence (our auth service already handles tokens)
-        localStorage.setItem('user_id', authData.user.id);
-        localStorage.setItem('user_email', authData.user.email || '');
-
-        if (!userProfile || !userProfile.role) {
+        // Verify user has a role
+        if (!authData.user.role) {
           setError('User role not found. Please contact support.');
-          navigate('/', { replace: true });
           return;
         }
 
-        setTimeout(() => {
-          if (userProfile.role === 'superadmin') {
-            navigate('/superadmin', { replace: true });
-          } else if (userProfile.role === 'admin') {
-            navigate('/admin', { replace: true });
-          } else if (userProfile.role === "user") {
-            navigate('/user', { replace: true });
-          } else {
-            navigate('/', { replace: true });
-          }
-        }, 100);
+        // Redirect based on user role
+        redirectBasedOnRole(authData.user.role);
+      } else {
+        setError('Login failed. Please try again.');
       }
+
     } catch (err) {
+      console.error('Login error:', err);
       setError(
         err instanceof Error
           ? err.message
-          : 'An error occurred during authentication'
+          : 'An unexpected error occurred. Please try again.'
       );
     } finally {
       setLoading(false);
@@ -167,6 +174,7 @@ const Login: React.FC = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="block w-full pl-10 pr-3 py-3 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-800/80"
                     placeholder="you@example.com"
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -195,6 +203,7 @@ const Login: React.FC = () => {
                     }}
                     className="block w-full pl-10 pr-12 py-3 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-800/80"
                     placeholder="Enter your password"
+                    disabled={loading}
                   />
                   <button
                     type="button"
@@ -206,6 +215,7 @@ const Login: React.FC = () => {
                       setPasswordVisible(!passwordVisible);
                     }}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-200 transition-colors"
+                    disabled={loading}
                   >
                     {passwordVisible ? (
                       <EyeOff className="h-5 w-5" />
@@ -219,7 +229,10 @@ const Login: React.FC = () => {
 
             {/* Forgot Password Link */}
             <div className="flex items-center justify-end">
-              <Link to="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+              <Link 
+                to="/forgot-password" 
+                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+              >
                 Forgot your password?
               </Link>
             </div>

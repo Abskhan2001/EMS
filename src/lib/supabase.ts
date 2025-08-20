@@ -33,7 +33,7 @@ const enhancedApiClient = {
     signInWithPassword: authService.signInWithPassword.bind(authService),
     signOut: authService.signOut.bind(authService),
     getSession: authService.getSession.bind(authService),
-
+    
     // Auth state change listener (compatibility method)
     onAuthStateChange: (callback: (event: string, session: any) => void) => {
       // Store the callback for later use

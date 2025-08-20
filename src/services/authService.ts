@@ -151,7 +151,6 @@ class AuthService {
     return token;
   }
 
-  // Login method to replace supabase.auth.signInWithPassword
   async signInWithPassword(credentials: LoginCredentials): Promise<{ data: { user: User; session: Session } | null; error: Error | null }> {
     try {
       const response = await axios.post<AuthResponse>(`${this.baseURL}/login`, credentials);
@@ -193,7 +192,6 @@ class AuthService {
     }
   }
 
-  // Register method to replace supabase.auth.signUp
   async signUp(userData: RegisterData): Promise<{ data: { user: User; session: Session } | null; error: Error | null }> {
     try {
       const response = await axios.post<AuthResponse>(`${this.baseURL}/register`, userData);
