@@ -355,9 +355,55 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
     return { difficulty, easyParts, mediumParts, hardParts, kpis, rows: scaledRows, totalMin, totalMax };
   };
 
-  const renderInsights = (inputTitle: string, analysis?: AITaskAnalysis) => {
+  // Humanized duration formatters
+  const formatDuration = (hours: number): string => {
+    if (!isFinite(hours) || hours <= 0) return '0 minutes';
+    if (hours < 1) {
+      const mins = Math.max(1, Math.round(hours * 60));
+      return `${mins} ${mins === 1 ? 'minute' : 'minutes'}`;
+    }
+    const roundedHours = Math.round(hours);
+    return `${roundedHours} ${roundedHours === 1 ? 'hour' : 'hours'}`;
+  };
+
+  // Single-value duration only (no ranges)
+
+  const renderInsights = (
+    inputTitle: string,
+    analysis?: AITaskAnalysis,
+    options?: { includeCreateTaskRow?: boolean; shortenFactor?: number }
+  ) => {
     if (!inputTitle.trim()) return null;
     const insights = deriveInsights(inputTitle, analysis);
+
+    // Optionally include an extra row for the Create New Task flow only
+    const rows = [...insights.rows];
+    if (options?.includeCreateTaskRow) {
+      rows.unshift({
+        title: 'Create Task in EMS',
+        description: 'Create task record and assign yourself',
+        hoursMin: 1 / 60, // 1 minute
+        hoursMax: 3 / 60, // 3 minutes
+        hoursMid: 2 / 60, // 2 minutes
+      });
+    }
+
+    // Shorten every task time across all sections and recompute aggregates
+    const SHORTEN_FACTOR =
+      typeof options?.shortenFactor === 'number' && isFinite(options.shortenFactor)
+        ? options.shortenFactor
+        : 0.4; // default reduction
+    const reducedRows = rows.map((r) => {
+      const mid = Math.max(1 / 60, parseFloat((r.hoursMid * SHORTEN_FACTOR).toFixed(2)));
+      const minH = Math.max(0.25, parseFloat((mid * 0.8).toFixed(2)));
+      const maxH = parseFloat((mid * 1.4).toFixed(2));
+      return { ...r, hoursMid: mid, hoursMin: minH, hoursMax: maxH };
+    });
+
+    const totalMid = reducedRows.reduce((s, r) => s + r.hoursMid, 0);
+    let difficulty: Insights['difficulty'] = 'Easy';
+    if (totalMid >= 18 && totalMid < 40) difficulty = 'Medium';
+    else if (totalMid >= 40) difficulty = 'Hard';
     return (
       <div className="mt-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
         {/* Summary banner */}
@@ -369,7 +415,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
                 {analysis?.summary || `Professional estimate for: ${inputTitle}`}
               </div>
             </div>
-            <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${insights.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : insights.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{insights.difficulty}</span>
+            <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${difficulty === 'Easy' ? 'bg-green-100 text-green-700' : difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{difficulty}</span>
           </div>
         </div>
 
@@ -386,7 +432,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
                 </tr>
               </thead>
               <tbody>
-                {insights.rows.map((r, idx) => (
+                {reducedRows.map((r, idx) => (
                   <tr key={`bp-${idx}`} className="border-t border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2 text-sm text-gray-700 align-top">
                       <span className="text-gray-500 mr-1">{idx + 1}.</span>
@@ -395,13 +441,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
                     <td className="px-3 py-2 text-sm text-gray-600 align-top">
                       {r.description || '-'}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-700 text-right align-top font-medium">
-                      {(() => {
-                        const min = Math.max(1, Math.round(r.hoursMin));
-                        const max = Math.max(min, Math.round(r.hoursMax));
-                        return min === max ? `${max} hours` : `${min}–${max} hours`;
-                      })()}
-                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-700 text-right align-top font-medium">{formatDuration(r.hoursMid)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -435,9 +475,9 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
         {/* Total time */}
         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
           <div className="text-sm font-medium text-gray-700">Total Estimated Time</div>
-          <div className="text-sm text-gray-800 font-semibold">{insights.totalMin.toFixed(0)}–{insights.totalMax.toFixed(0)} hours</div>
+          <div className="text-sm text-gray-800 font-semibold">{formatDuration(totalMid)}</div>
         </div>
-        <div className="mt-2 text-right text-xs text-gray-500">KPIs: <span className="font-semibold text-gray-600">{insights.kpis}</span></div>
+        <div className="mt-2 text-right text-xs text-gray-500">KPIs: <span className="font-semibold text-gray-600">{Math.max(1, Math.round(totalMid / 6))}</span></div>
       </div>
     );
   };
@@ -1300,7 +1340,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
               Creating...
             </div>
           ) : (
-            'Create Task'
+            'Add Task'
           )}
         </button>
 
@@ -1334,9 +1374,25 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
             <div ref={setAnalysisRef('new-task')} className="space-y-2">
               {isTrivialTask(`${newTaskTitle} ${newTaskDescription}`)
                 ? (<div className="text-sm text-gray-600">please provide a task</div>)
-                : renderInsights(`${newTaskTitle} ${newTaskDescription}`.trim(), aiAnalyses['new-task'] as any)}
+                : renderInsights(`${newTaskTitle} ${newTaskDescription}`.trim(), aiAnalyses['new-task'] as any, { includeCreateTaskRow: true })}
             </div>
           )}
+          <div className="mt-4 flex justify-start">
+            <button
+              onClick={handleCreateTask}
+              disabled={!newTaskTitle.trim() || isCreatingTask}
+              className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+            >
+              {isCreatingTask ? (
+                <div className="flex items-center">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Creating...
+                </div>
+              ) : (
+                'Add Task'
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>
