@@ -47,6 +47,8 @@ export interface RegisterData {
   role?: string;
   department?: string;
   organizationId?: string;
+  organizationName?: string;
+  organizationSlug?: string;
 }
 
 class AuthService {
@@ -194,7 +196,25 @@ class AuthService {
 
   async signUp(userData: RegisterData): Promise<{ data: { user: User; session: Session } | null; error: Error | null }> {
     try {
-      const response = await axios.post<AuthResponse>(`${this.baseURL}/register`, userData);
+      let endpoint = `${this.baseURL}/register`;
+      let requestData = userData;
+
+      // Check if this is an organization registration
+      if (userData.organizationName && userData.organizationSlug) {
+        endpoint = `${this.baseURL}/register-organization`;
+        
+        // Format data for organization registration
+        requestData = {
+          email: userData.email,
+          password: userData.password,
+          fullName: userData.fullName,
+          role: userData.role || 'admin', // Default to admin for organization creator
+          organizationName: userData.organizationName,
+          organizationSlug: userData.organizationSlug,
+        };
+      }
+
+      const response = await axios.post<AuthResponse>(endpoint, requestData);
 
       if (response.data.success) {
         const { user, tokens } = response.data;
