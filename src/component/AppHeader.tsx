@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 
 interface AppHeaderProps {
   activeTab: string;
+  
   onChangeTab: (tab: string) => void;
 }
 

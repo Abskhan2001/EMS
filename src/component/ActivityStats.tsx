@@ -6,6 +6,8 @@ import { Mouse, Keyboard, Activity } from 'lucide-react';
 interface ActivityStatsProps {
   mouseActivity: number;
   keyboardActivity: number;
+
+  
   isActive: boolean;
   lastActivityTime: Date;
 }
