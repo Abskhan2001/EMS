@@ -20,8 +20,8 @@ const AbsenteeComponent = ({selectedDate}) => {
         .from('absentees')
         .select('*')
         .eq('user_id', localStorage.getItem('user_id'))
-        .gte('created_at', monthStart.toISOString())
-        .lte('created_at', monthEnd.toISOString())
+        .gte('absentee_date', monthStart.toISOString().split('T')[0])
+        .lte('absentee_date', monthEnd.toISOString().split('T')[0])
 
         // .gte('created_at', startOfDay)
         // .lt('created_at', endOfDay);

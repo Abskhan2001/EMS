@@ -90,7 +90,7 @@ export const AttendenceAPI = createApi({
             );
 
             const hasAbsentee = absentees.some(
-              (a) => format(new Date(a.created_at), 'yyyy-MM-dd') === dayStr
+              (a) => a.absentee_date === dayStr
             );
 
             if (!hasAttendance && !hasAbsentee) {

@@ -109,8 +109,8 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
       .select("*", { count: "exact", head: true })
       .eq('user_id', userID)
       .eq('absentee_type', "leave")
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString())
+      .gte('absentee_date', monthStart.toISOString().split('T')[0])
+      .lte('absentee_date', monthEnd.toISOString().split('T')[0])
     if (error) {
       console.error("Error Fetching Absentees Count", error);
     } else {
@@ -162,8 +162,8 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
       .select("*", { count: "exact", head: true })
       .eq('user_id', userID)
       .eq('absentee_type', "Absent")
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString());
+      .gte('absentee_date', monthStart.toISOString().split('T')[0])
+      .lte('absentee_date', monthEnd.toISOString().split('T')[0]);
     if (error) {
       console.error("Error Fetching Absentees Count", error);
     } else {
