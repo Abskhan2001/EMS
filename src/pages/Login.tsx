@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { Clock, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import Swal from 'sweetalert2';
+
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -40,6 +42,7 @@ const Login: React.FC = () => {
           navigate('/superadmin', { replace: true });
           break;
         case 'admin':
+        case 'organization':
           navigate('/admin', { replace: true });
           break;
         case 'user':
@@ -89,6 +92,10 @@ const Login: React.FC = () => {
       if (authData?.user) {
         // Login successful
         console.log('Login successful:', authData.user);
+        
+        localStorage.setItem("organizationId", authData.user.organizationId._id);
+        
+
 
         // Verify user has a role
         if (!authData.user.role) {
@@ -96,8 +103,17 @@ const Login: React.FC = () => {
           return;
         }
 
-        // Redirect based on user role
-        redirectBasedOnRole(authData.user.role);
+        
+       Swal.fire({
+          icon: 'success',
+          title: 'Login Successful!',
+          text: `Welcome back, ${authData.user.email}`,
+          showConfirmButton: false,
+          timer: 2000
+        }).then(() => {
+          redirectBasedOnRole(authData.user.role);
+        });
+
       } else {
         setError('Login failed. Please try again.');
       }

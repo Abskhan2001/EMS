@@ -1310,7 +1310,7 @@ const EmployeesDetails = () => {
                   </div>
                 </div>
 
-                {/* Employee Table */}
+           
 
                 {loading ? (
                   <Loader />

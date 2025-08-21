@@ -105,6 +105,7 @@
     "screenshot-desktop": "^1.15.1",
     "sonner": "^1.5.0",
     "supabase": "^2.15.8",
+    "sweetalert2": "^11.22.4",
     "swiper": "^11.2.10",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
