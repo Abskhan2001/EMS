@@ -57,6 +57,9 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
   const [aiAnalyses, setAiAnalyses] = useState<Record<string, AITaskAnalysis>>({});
   const [customTasks, setCustomTasks] = useState<Array<{ id: string; title: string; description: string }>>([]);
   const [nextCustomTaskId, setNextCustomTaskId] = useState(1);
+  
+  // Track which analysis sections should be visible
+  const [visibleAnalyses, setVisibleAnalyses] = useState<Set<string>>(new Set());
 
   const modalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -378,15 +381,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
 
     // Optionally include an extra row for the Create New Task flow only
     const rows = [...insights.rows];
-    if (options?.includeCreateTaskRow) {
-      rows.unshift({
-        title: 'Create Task in EMS',
-        description: 'Create task record and assign yourself',
-        hoursMin: 1 / 60, // 1 minute
-        hoursMax: 3 / 60, // 3 minutes
-        hoursMid: 2 / 60, // 2 minutes
-      });
-    }
 
     // Shorten every task time across all sections and recompute aggregates
     const SHORTEN_FACTOR =
@@ -405,17 +399,17 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
     if (totalMid >= 18 && totalMid < 40) difficulty = 'Medium';
     else if (totalMid >= 40) difficulty = 'Hard';
     return (
-      <div className="mt-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+      <div className="mt-4 p-2 sm:p-4 bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm">
         {/* Summary banner */}
-        <div className="mb-4 p-3 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100">
-          <div className="flex items-center justify-between">
+        <div className="mb-4 p-2 sm:p-3 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
             <div>
               <div className="text-xs font-semibold text-indigo-700 uppercase tracking-wide mb-1">Summary</div>
-              <div className="text-sm text-gray-800">
+              <div className="text-xs sm:text-sm text-gray-800">
                 {analysis?.summary || `Professional estimate for: ${inputTitle}`}
               </div>
             </div>
-            <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${difficulty === 'Easy' ? 'bg-green-100 text-green-700' : difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{difficulty}</span>
+            <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${difficulty === 'Easy' ? 'bg-green-100 text-green-700' : difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'} self-start sm:self-auto`}>{difficulty}</span>
           </div>
         </div>
 
@@ -426,22 +420,22 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 w-1/3">Task</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 w-1/2">Description</th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 w-1/6">Estimated Time</th>
+                  <th className="px-2 sm:px-3 py-2 text-left text-xs font-semibold text-gray-600 w-1/2 sm:w-1/3">Task</th>
+                  <th className="hidden sm:table-cell px-2 sm:px-3 py-2 text-left text-xs font-semibold text-gray-600 w-1/2">Description</th>
+                  <th className="px-2 sm:px-3 py-2 text-right text-xs font-semibold text-gray-600 w-1/2 sm:w-1/6">Time</th>
                 </tr>
               </thead>
               <tbody>
                 {reducedRows.map((r, idx) => (
                   <tr key={`bp-${idx}`} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-3 py-2 text-sm text-gray-700 align-top">
+                    <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-700 align-top">
                       <span className="text-gray-500 mr-1">{idx + 1}.</span>
                       <span className="font-medium text-gray-800">{r.title}</span>
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-600 align-top">
+                    <td className="hidden sm:table-cell px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-600 align-top">
                       {r.description || '-'}
                     </td>
-                    <td className="px-3 py-2 text-sm text-gray-700 text-right align-top font-medium">{formatDuration(r.hoursMid)}</td>
+                    <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-700 text-right align-top font-medium">{formatDuration(r.hoursMid)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -450,22 +444,22 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
         </div>
 
         {(insights.easyParts.length + insights.mediumParts.length + insights.hardParts.length) > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <div className="hidden sm:grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div>
               <div className="text-xs font-semibold text-gray-600 mb-1">Easy parts</div>
-              <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
+              <ul className="list-disc pl-4 sm:pl-5 text-xs sm:text-sm text-gray-700 space-y-0.5">
                 {insights.easyParts.map((p, i) => (<li key={`easy-${i}`}>{p}</li>))}
               </ul>
             </div>
             <div>
               <div className="text-xs font-semibold text-gray-600 mb-1">Medium parts</div>
-              <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
+              <ul className="list-disc pl-4 sm:pl-5 text-xs sm:text-sm text-gray-700 space-y-0.5">
                 {insights.mediumParts.map((p, i) => (<li key={`med-${i}`}>{p}</li>))}
               </ul>
             </div>
             <div>
               <div className="text-xs font-semibold text-gray-600 mb-1">Hard parts</div>
-              <ul className="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
+              <ul className="list-disc pl-4 sm:pl-5 text-xs sm:text-sm text-gray-700 space-y-0.5">
                 {insights.hardParts.map((p, i) => (<li key={`hard-${i}`}>{p}</li>))}
               </ul>
             </div>
@@ -473,9 +467,9 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
         )}
 
         {/* Total time */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="text-sm font-medium text-gray-700">Total Estimated Time</div>
-          <div className="text-sm text-gray-800 font-semibold">{formatDuration(totalMid)}</div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 p-2 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="text-xs sm:text-sm font-medium text-gray-700">Total Estimated Time</div>
+          <div className="text-xs sm:text-sm text-gray-800 font-semibold">{formatDuration(totalMid)}</div>
         </div>
         <div className="mt-2 text-right text-xs text-gray-500">KPIs: <span className="font-semibold text-gray-600">{Math.max(1, Math.round(totalMid / 6))}</span></div>
       </div>
@@ -532,7 +526,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'mixtral-8x7b-32768',
+          model: 'llama3-8b-8192',
           messages: [
              {
   role: 'system',
@@ -565,22 +559,33 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
 ❌ Do not add explanation, greeting, or any extra text. Stay 100% strict to this format.`
 }
 ,
-            {
-              role: 'assistant',
-              content: {"summary": "User authentication system implementation", "subtasks": [{"title": "• Design login/register forms", "points": 2}, {"title": "• Implement JWT authentication", "points": 3}, {"title": "• Add password reset functionality", "points": 1}], "totalTime": 12}
-            },
-            {
-              role: 'user',
-              content: 'Create a user dashboard'
-            },
-            {
-              role: 'assistant',
-              content: {"summary": "User dashboard creation", "subtasks": [{"title": "• Design dashboard layout and components", "points": 2}, {"title": "• Implement user profile display", "points": 1}, {"title": "• Add activity tracking widgets", "points": 2}], "totalTime": 10}
-            }
-,
-            {
-              role: 'user',
-              content: `TASK TO ANALYZE: "${taskTitle}"
+             {
+               role: 'assistant',
+               content: `✅ Task Breakdown:
+- Design login/register forms: 2 points
+- Implement JWT authentication: 3 points
+- Add password reset functionality: 1 point
+
+📊 Total Points: 6
+⏱ Estimated Time: 6 hours`
+             },
+             {
+               role: 'user',
+               content: 'Create a user dashboard'
+             },
+             {
+               role: 'assistant',
+               content: `✅ Task Breakdown:
+- Design dashboard layout and components: 2 points
+- Implement user profile display: 1 point
+- Add activity tracking widgets: 2 points
+
+📊 Total Points: 5
+⏱ Estimated Time: 5 hours`
+             },
+             {
+               role: 'user',
+               content: `TASK TO ANALYZE: "${taskTitle}"
 
 Based on this EXACT task text, provide:
 1. A summary of what this specific task involves
@@ -590,13 +595,13 @@ Based on this EXACT task text, provide:
 DO NOT give generic responses. Your analysis must be specific to: "${taskTitle}"
 
 Remember: If the task is "Fix login bug", your subtasks should be about debugging login issues, not generic development steps.`
-            }
+             }
 
-          ],
-          temperature: 0.3,
-          max_tokens: 300
-        })
-      });
+           ],
+           temperature: 0.3,
+           max_tokens: 300
+         })
+       });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -749,6 +754,9 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
   // Manual AI analysis trigger function with retry capability
   const triggerAnalysis = (taskId: string, title: string, retryCount = 0) => {
     if (title.trim()) {
+      // Show the analysis section when Analyze button is clicked
+      setVisibleAnalyses(prev => new Set([...prev, taskId]));
+      
       if (retryCount < 2) {
         setLastAnalyzedId(taskId);
         analyzeTaskWithAI(title, taskId, retryCount);
@@ -968,6 +976,9 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
       setCustomTasks([]);
       setNextCustomTaskId(1);
       
+      // Clear visible analyses
+      setVisibleAnalyses(new Set());
+      
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -1104,34 +1115,34 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       {/* Modal */}
       <div
         ref={modalRef}
-        className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.2)] border border-white/60 w-full max-w-4xl max-h-[90vh] z-10 relative animate-fadeIn overflow-hidden flex flex-col"
+        className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.2)] border border-white/60 w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] z-10 relative animate-fadeIn overflow-hidden flex flex-col"
         style={{
           animation: 'slideUp 0.3s ease-out',
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
           <div>
-            <h2 className="text-2xl font-bold">Today's Tasks</h2>
-            <p className="text-sm text-white/80 mt-1">Plan your day and stay focused</p>
+            <h2 className="text-xl sm:text-2xl font-bold">Today's Tasks</h2>
+            <p className="text-xs sm:text-sm text-white/80 mt-1">Plan your day and stay focused</p>
           </div>
           <button
             onClick={onClose}
             className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
           >
-            <X size={22} />
+            <X size={20} className="sm:w-[22px] sm:h-[22px]" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1">
           {/* Project Selection */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1140,7 +1151,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
             <div className="relative">
               <button
                 onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
-                className={`w-full p-4 border ${selectedProject ? 'border-indigo-200 bg-white' : 'border-gray-200 bg-white'} rounded-xl text-left flex items-center justify-between hover:border-indigo-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-sm`}
+                className={`w-full p-3 sm:p-4 border ${selectedProject ? 'border-indigo-200 bg-white' : 'border-gray-200 bg-white'} rounded-lg sm:rounded-xl text-left flex items-center justify-between hover:border-indigo-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-sm`}
                 disabled={isLoadingProjects}
               >
                 <span className={selectedProject ? 'text-gray-900 font-medium' : 'text-gray-400'}>
@@ -1150,14 +1161,14 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
               </button>
 
               {isProjectDropdownOpen && (
-                <div className="absolute w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-64 overflow-auto z-10 py-1">
+                <div className="absolute w-full mt-2 bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-xl max-h-48 sm:max-h-64 overflow-auto z-10 py-1">
                   {isLoadingProjects ? (
-                    <div className="p-4 text-center text-gray-500">
-                      <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                      Loading projects...
+                    <div className="p-3 sm:p-4 text-center text-gray-500">
+                      <div className="w-4 sm:w-5 h-4 sm:h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <span className="text-sm">Loading projects...</span>
                     </div>
                   ) : projects.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">No projects found</div>
+                    <div className="p-3 sm:p-4 text-center text-gray-500 text-sm">No projects found</div>
                   ) : (
                     projects.map(project => (
                       <button
@@ -1167,9 +1178,9 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
                           setIsProjectDropdownOpen(false);
                           setSelectedTasks([]);
                         }}
-                        className="w-full px-4 py-3 text-left hover:bg-indigo-50 transition-colors flex items-center justify-between group"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 text-left hover:bg-indigo-50 transition-colors flex items-center justify-between group"
                       >
-                        <span className="font-medium text-gray-700 group-hover:text-indigo-600">{project.title}</span>
+                        <span className="font-medium text-gray-700 group-hover:text-indigo-600 text-sm sm:text-base">{project.title}</span>
                         {selectedProject?.id === project.id && (
                           <Check className="w-4 h-4 text-indigo-600" />
                         )}
@@ -1190,7 +1201,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
               <div className="relative">
                 <button
                   onClick={() => setIsTaskDropdownOpen(!isTaskDropdownOpen)}
-                  className={`w-full p-4 border ${selectedTasks.length > 0 ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 bg-white'} rounded-xl text-left flex items-center justify-between hover:border-indigo-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-sm`}
+                  className={`w-full p-3 sm:p-4 border ${selectedTasks.length > 0 ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200 bg-white'} rounded-lg sm:rounded-xl text-left flex items-center justify-between hover:border-indigo-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-sm`}
                   disabled={isLoadingTasks}
                 >
                   <span className={selectedTasks.length > 0 ? 'text-gray-900 font-medium' : 'text-gray-400'}>
@@ -1202,11 +1213,11 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
                 </button>
 
                 {isTaskDropdownOpen && (
-                  <div className="absolute w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-80 overflow-auto z-10 py-1">
+                  <div className="absolute w-full mt-2 bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-xl max-h-64 sm:max-h-80 overflow-auto z-10 py-1">
                     {isLoadingTasks ? (
-                      <div className="p-4 text-center text-gray-500">
-                        <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                        Loading tasks...
+                      <div className="p-3 sm:p-4 text-center text-gray-500">
+                        <div className="w-4 sm:w-5 h-4 sm:h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <span className="text-sm">Loading tasks...</span>
                       </div>
                     ) : (
                       <>
@@ -1216,39 +1227,42 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
                               setShowCreateTask(true);
                               setIsTaskDropdownOpen(false);
                             }}
-                            className="w-full px-4 py-3 text-left text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center group"
+                            className="w-full px-3 sm:px-4 py-2 sm:py-3 text-left text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center group"
                           >
-                            <div className="p-1 bg-indigo-100 rounded-lg mr-3 group-hover:bg-indigo-200 transition-colors">
-                              <Plus className="w-4 h-4" />
+                            <div className="p-1 bg-indigo-100 rounded-lg mr-2 sm:mr-3 group-hover:bg-indigo-200 transition-colors">
+                              <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                             </div>
-                            <span className="font-medium">Create New Task</span>
+                            <span className="font-medium text-sm sm:text-base">Create New Task</span>
                           </button>
                         </div>
                         {projectTasks.length === 0 ? (
-                          <div className="p-4 text-center text-gray-500">No pending tasks found</div>
+                          <div className="p-3 sm:p-4 text-center text-gray-500 text-sm">No pending tasks found</div>
                         ) : (
                           projectTasks.map(task => (
                             <button
                               key={task.id}
-                              onClick={() => toggleTaskSelection(task.id)}
-                              className={`w-full px-4 py-3 text-left transition-all flex items-center justify-between group ${selectedTasks.includes(task.id)
+                              onClick={() => {
+                                toggleTaskSelection(task.id);
+                                setIsTaskDropdownOpen(false);
+                              }}
+                              className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-left transition-all flex items-center justify-between group ${selectedTasks.includes(task.id)
                                 ? 'bg-indigo-50 hover:bg-indigo-100'
                                 : 'hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex-1 min-w-0">
-                                <div className={`font-medium ${selectedTasks.includes(task.id) ? 'text-indigo-900' : 'text-gray-700'}`}>
+                                <div className={`font-medium text-sm sm:text-base ${selectedTasks.includes(task.id) ? 'text-indigo-900' : 'text-gray-700'}`}>
                                   {task.title}
                                 </div>
                                 {task.description && (
-                                  <div className="text-sm text-gray-500 truncate mt-0.5">{task.description}</div>
+                                  <div className="text-xs sm:text-sm text-gray-500 truncate mt-0.5">{task.description}</div>
                                 )}
                               </div>
-                              <div className={`ml-3 p-1 rounded-full transition-all ${selectedTasks.includes(task.id)
+                              <div className={`ml-2 sm:ml-3 p-1 rounded-full transition-all ${selectedTasks.includes(task.id)
                                 ? 'bg-indigo-600'
                                 : 'bg-gray-200 group-hover:bg-gray-300'
                                 }`}>
-                                <Check className={`w-3.5 h-3.5 ${selectedTasks.includes(task.id)
+                                <Check className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${selectedTasks.includes(task.id)
                                   ? 'text-white'
                                   : 'text-transparent'
                                   }`} />
@@ -1267,11 +1281,11 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
  {/* Create New Task Form */}
 {showCreateTask && (
   <div className="animate-fadeIn">
-    <div className="p-6 border-2 border-indigo-200 rounded-xl bg-gradient-to-br from-indigo-50 to-white shadow-sm">
+    <div className="p-4 sm:p-6 border-2 border-indigo-200 rounded-lg sm:rounded-xl bg-gradient-to-br from-indigo-50 to-white shadow-sm">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold text-gray-800 flex items-center">
-          <div className="p-1.5 bg-indigo-100 rounded-lg mr-2">
-            <Plus className="w-4 h-4 text-indigo-600" />
+        <h3 className="font-semibold text-gray-800 flex items-center text-sm sm:text-base">
+          <div className="p-1 sm:p-1.5 bg-indigo-100 rounded-lg mr-2">
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-600" />
           </div>
           Create New Task
         </h3>
@@ -1283,7 +1297,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
           }}
           className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-lg transition-colors"
         >
-          <X size={18} />
+          <X size={16} className="sm:w-[18px] sm:h-[18px]" />
         </button>
       </div>
 
@@ -1294,7 +1308,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
           placeholder="Task title"
-          className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all bg-white shadow-sm"
+          className="flex-1 p-2 sm:p-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all bg-white shadow-sm text-sm sm:text-base"
         />
       </div>
 
@@ -1302,7 +1316,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
         value={newTaskDescription}
         onChange={(e) => setNewTaskDescription(e.target.value)}
         placeholder="Task description (optional)"
-        className="w-full p-3 border-2 border-gray-200 rounded-lg mb-3 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all resize-none bg-white shadow-sm"
+        className="w-full p-2 sm:p-3 border-2 border-gray-200 rounded-lg mb-3 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all resize-none bg-white shadow-sm text-sm sm:text-base"
         rows={2}
       />
 
@@ -1311,19 +1325,19 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
         value={newTaskScore}
         onChange={(e) => setNewTaskScore(e.target.value)}
         placeholder="Task KPI/Score (optional)"
-        className="w-full p-3 border-2 border-gray-200 rounded-lg mb-4 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all bg-white shadow-sm"
+        className="w-full p-2 sm:p-3 border-2 border-gray-200 rounded-lg mb-4 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all bg-white shadow-sm text-sm sm:text-base"
         min="0"
       />
 
       {/* Buttons */}
-      <div className="flex justify-end space-x-3">
+      <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
         <button
           onClick={() => {
             setShowCreateTask(false);
             setNewTaskTitle('');
             setNewTaskDescription('');
           }}
-          className="px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
+          className="px-3 sm:px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
           disabled={isCreatingTask}
         >
           Cancel
@@ -1332,11 +1346,11 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
         <button
           onClick={handleCreateTask}
           disabled={!newTaskTitle.trim() || isCreatingTask}
-          className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+          className="px-3 sm:px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
         >
           {isCreatingTask ? (
             <div className="flex items-center">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+              <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
               Creating...
             </div>
           ) : (
@@ -1351,29 +1365,28 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
             triggerAnalysis('new-task', text);
           }}
           disabled={!newTaskTitle.trim() && !newTaskDescription.trim()}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-sm hover:shadow-md"
+          className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
         >
-          <Sparkles className="w-4 h-4" />
+          <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
           Analyze
         </button>
-
       </div>
 
-      {/* AI Analysis Display for Create New Task */}
-      {(newTaskTitle.trim() || newTaskDescription.trim()) && (
-        <div className="mt-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+      {/* AI Analysis Display for Create New Task - Only show when visible */}
+      {visibleAnalyses.has('new-task') && (newTaskTitle.trim() || newTaskDescription.trim()) && (
+        <div className="mt-4 p-3 sm:p-4 bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm">
           <div className="flex items-center mb-3">
-            <Sparkles className="w-4 h-4 text-purple-600 mr-2" />
-            <span className="text-sm font-medium text-gray-700">AI Analysis</span>
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600 mr-2" />
+            <span className="text-xs sm:text-sm font-medium text-gray-700">AI Analysis</span>
             {aiAnalyses['new-task']?.isLoading && (
-              <Loader2 className="w-4 h-4 text-gray-400 ml-2 animate-spin" />
+              <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 ml-2 animate-spin" />
             )}
           </div>
 
           {aiAnalyses['new-task'] && !aiAnalyses['new-task'].isLoading && (
             <div ref={setAnalysisRef('new-task')} className="space-y-2">
               {isTrivialTask(`${newTaskTitle} ${newTaskDescription}`)
-                ? (<div className="text-sm text-gray-600">please provide a task</div>)
+                ? (<div className="text-xs sm:text-sm text-gray-600">please provide a task</div>)
                 : renderInsights(`${newTaskTitle} ${newTaskDescription}`.trim(), aiAnalyses['new-task'] as any, { includeCreateTaskRow: true })}
             </div>
           )}
@@ -1381,11 +1394,11 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
             <button
               onClick={handleCreateTask}
               disabled={!newTaskTitle.trim() || isCreatingTask}
-              className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+              className="px-3 sm:px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
             >
               {isCreatingTask ? (
                 <div className="flex items-center">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                   Creating...
                 </div>
               ) : (
@@ -1407,9 +1420,9 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
     </label>
     <button
       onClick={addCustomTask}
-      className="flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+      className="flex items-center px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
     >
-      <Plus className="w-4 h-4 mr-1" />
+      <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
       Add Task
     </button>
   </div>
@@ -1417,7 +1430,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
   {customTasks.map((task) => (
     <div
       key={task.id}
-      className="border-2 border-gray-200 rounded-xl p-5 bg-gradient-to-br from-gray-50 to-white shadow-sm"
+      className="border-2 border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-5 bg-gradient-to-br from-gray-50 to-white shadow-sm"
     >
       {/* Title + Delete */}
       <div className="flex items-start justify-between mb-3">
@@ -1427,14 +1440,14 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
             value={task.title}
             onChange={(e) => updateCustomTask(task.id, "title", e.target.value)}
             placeholder="Enter task title..."
-            className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all bg-white shadow-sm"
+            className="flex-1 p-2 sm:p-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all bg-white shadow-sm text-sm sm:text-base"
           />
         </div>
         <button
           onClick={() => removeCustomTask(task.id)}
-          className="ml-2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          className="ml-2 p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
         >
-          <X size={16} />
+          <X size={14} className="sm:w-4 sm:h-4" />
         </button>
       </div>
 
@@ -1445,7 +1458,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
           updateCustomTask(task.id, "description", e.target.value)
         }
         placeholder="Task description (optional)"
-        className="w-full p-3 border-2 border-gray-200 rounded-lg mb-3 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all resize-none bg-white shadow-sm"
+        className="w-full p-2 sm:p-3 border-2 border-gray-200 rounded-lg mb-3 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all resize-none bg-white shadow-sm text-sm sm:text-base"
         rows={2}
       />
 
@@ -1453,27 +1466,27 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
       <button
         onClick={() => triggerAnalysis(task.id, `${task.title} ${task.description}`)}
         disabled={!task.title.trim() && !task.description.trim()}
-        className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-sm hover:shadow-md"
+        className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md text-sm"
       >
-        <Sparkles className="w-4 h-4" />
+        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
         Analyze
       </button>
 
-      {/* AI Analysis Display */}
-      {(task.title?.trim() || task.description?.trim()) && (
-        <div className="mt-3 p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+      {/* AI Analysis Display - Only show when visible */}
+      {visibleAnalyses.has(task.id) && (task.title?.trim() || task.description?.trim()) && (
+        <div className="mt-3 p-3 sm:p-4 bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm">
           <div className="flex items-center mb-3">
-            <Sparkles className="w-4 h-4 text-purple-600 mr-2" />
-            <span className="text-sm font-medium text-gray-700">AI Analysis</span>
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600 mr-2" />
+            <span className="text-xs sm:text-sm font-medium text-gray-700">AI Analysis</span>
             {aiAnalyses[task.id]?.isLoading && (
-              <Loader2 className="w-4 h-4 text-gray-400 ml-2 animate-spin" />
+              <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 ml-2 animate-spin" />
             )}
           </div>
 
           {aiAnalyses[task.id] && !aiAnalyses[task.id].isLoading && (
             <div ref={setAnalysisRef(task.id)} className="space-y-2">
               {isTrivialTask(`${task.title} ${task.description}`)
-                ? (<div className="text-sm text-gray-600">please provide a task</div>)
+                ? (<div className="text-xs sm:text-sm text-gray-600">please provide a task</div>)
                 : renderInsights(`${task.title} ${task.description}`.trim(), aiAnalyses[task.id] as any)}
             </div>
           )}
@@ -1497,50 +1510,52 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
                 if (!task) return null;
 
                 return (
-                  <div key={taskId} className="border-2 border-blue-200 rounded-xl p-5 bg-gradient-to-br from-blue-50 to-white shadow-sm">
+                  <div key={taskId} className="border-2 border-blue-200 rounded-lg sm:rounded-xl p-4 sm:p-5 bg-gradient-to-br from-blue-50 to-white shadow-sm">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900">{task.title}</div>
+                        <div className="font-medium text-gray-900 text-sm sm:text-base">{task.title}</div>
                         {task.description && (
-                          <div className="text-sm text-gray-600 mt-1">{task.description}</div>
+                          <div className="text-xs sm:text-sm text-gray-600 mt-1">{task.description}</div>
                         )}
                       </div>
-                      <div className="flex gap-2 ml-2">
+                      <div className="flex flex-col sm:flex-row gap-2 ml-2">
                         <button
                           onClick={() => triggerAnalysis(taskId, `${task.title || ''} ${task.description || ''}`.trim())}
                           disabled={!task.title.trim()}
-                          className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1 text-sm shadow-sm hover:shadow-md"
+                          className="px-2 sm:px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1 text-xs sm:text-sm shadow-sm hover:shadow-md"
                         >
-                          <Sparkles className="w-3 h-3" />
+                          <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                           Analyze
                         </button>
                         <button
                           onClick={() => toggleTaskSelection(taskId)}
                           className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                         >
-                          <X size={16} />
+                          <X size={14} className="sm:w-4 sm:h-4" />
                         </button>
                       </div>
                     </div>
 
-                    {/* AI Analysis for Project Tasks */}
-                    <div className="mt-3 p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
-                      <div className="flex items-center mb-3">
-                        <Sparkles className="w-4 h-4 text-purple-600 mr-2" />
-                        <span className="text-sm font-medium text-gray-700">AI Analysis</span>
-                        {aiAnalyses[taskId]?.isLoading && (
-                          <Loader2 className="w-4 h-4 text-gray-400 ml-2 animate-spin" />
+                    {/* AI Analysis for Project Tasks - Only show when visible */}
+                    {visibleAnalyses.has(taskId) && (
+                      <div className="mt-3 p-3 sm:p-4 bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm">
+                        <div className="flex items-center mb-3">
+                          <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600 mr-2" />
+                          <span className="text-xs sm:text-sm font-medium text-gray-700">AI Analysis</span>
+                          {aiAnalyses[taskId]?.isLoading && (
+                            <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 ml-2 animate-spin" />
+                          )}
+                        </div>
+                        
+                        {aiAnalyses[taskId] && !aiAnalyses[taskId].isLoading && (
+                          <div ref={setAnalysisRef(taskId)} className="space-y-2">
+                            {isTrivialTask(`${task.title || ''} ${task.description || ''}`)
+                              ? (<div className="text-xs sm:text-sm text-gray-600">please provide a task</div>)
+                              : renderInsights(`${task.title || ''} ${task.description || ''}`.trim(), aiAnalyses[taskId] as any)}
+                          </div>
                         )}
                       </div>
-                      
-                      {aiAnalyses[taskId] && !aiAnalyses[taskId].isLoading && (
-                        <div ref={setAnalysisRef(taskId)} className="space-y-2">
-                          {isTrivialTask(`${task.title || ''} ${task.description || ''}`)
-                            ? (<div className="text-sm text-gray-600">please provide a task</div>)
-                            : renderInsights(`${task.title || ''} ${task.description || ''}`.trim(), aiAnalyses[taskId] as any)}
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 );
               })}
@@ -1563,14 +1578,14 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
                 // Display mode - clickable text
                 <div
                   onClick={handleTaskSummaryClick}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-all min-h-[120px] flex items-start"
+                  className="w-full p-3 sm:p-4 border-2 border-gray-200 rounded-lg sm:rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-all min-h-[100px] sm:min-h-[120px] flex items-start"
                   style={{ lineHeight: '1.6' }}
                 >
                   <div className="flex-1">
                     {tasks ? (
-                      <div className="text-gray-700 whitespace-pre-wrap">{tasks}</div>
+                      <div className="text-gray-700 whitespace-pre-wrap text-sm sm:text-base">{tasks}</div>
                     ) : (
-                      <div className="text-gray-400">Your task summary will appear here...</div>
+                      <div className="text-gray-400 text-sm sm:text-base">Your task summary will appear here...</div>
                     )}
                   </div>
                   <div className="ml-2 text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded opacity-70">
@@ -1585,7 +1600,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
                   onChange={(e) => setTasks(e.target.value)}
                   onKeyDown={handleTaskSummaryKeyDown}
                   onBlur={handleTaskSummaryBlur}
-                  className="w-full p-4 border border-indigo-500 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-100 transition-all resize-none bg-white shadow-sm"
+                  className="w-full p-3 sm:p-4 border border-indigo-500 rounded-lg sm:rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-100 transition-all resize-none bg-white shadow-sm text-sm sm:text-base"
                   rows={5}
                   placeholder="Enter your task summary here..."
                   style={{ lineHeight: '1.6' }}
@@ -1601,16 +1616,16 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
             {/* AI Analysis Display for Task Summary removed by request */}
           </div>
 
-          <div className="flex items-center justify-center space-x-2 text-xs text-gray-400">
-            <kbd className="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-gray-600 font-mono">Ctrl</kbd>
+          <div className="flex items-center justify-center space-x-2 text-xs text-gray-400 mt-2">
+            <kbd className="px-1.5 sm:px-2 py-1 bg-gray-100 border border-gray-200 rounded text-gray-600 font-mono text-xs">Ctrl</kbd>
             <span>+</span>
-            <kbd className="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-gray-600 font-mono">Enter</kbd>
+            <kbd className="px-1.5 sm:px-2 py-1 bg-gray-100 border border-gray-200 rounded text-gray-600 font-mono text-xs">Enter</kbd>
             <span>to submit</span>
           </div>
           </div>
 
         {/* Footer Section*/}
-        <div className="px-6 py-4 bg-gradient-to-t from-gray-50 to-white border-t border-gray-100 flex justify-end space-x-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-t from-gray-50 to-white border-t border-gray-100 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
              <div className="flex justify-end mt-2">
                   <button
                     type="button"
@@ -1621,7 +1636,7 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
                       setSelectedTasks([]); // Clear any selected tasks
                       setTasks('No task today'); // Set summary for admin/member section
                     }}
-                    className="px-4 py-2 text-sm font-medium bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all"
+                    className="w-full sm:w-auto px-3 sm:px-4 py-2 text-sm font-medium bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all"
                   >
                     No Task Today
                   </button>
@@ -1629,11 +1644,11 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
               <button
             onClick={handleApply}
             disabled={!tasks.trim() || isSaving}
-            className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-all focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+            className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-all focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md text-sm"
           >
             {isSaving ? (
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 <span>Saving...</span>
               </div>
             ) : (

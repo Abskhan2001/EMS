@@ -907,7 +907,7 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
                   <div className="text-center">
                     <AlertCircle className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
                     <p className="text-gray-600">Not checked in yet</p>
-                    <p className="text-sm text-gray-500 mt-1">Check in from the Attendance page to start your day</p>
+                    <p className="text-sm text-gray-500 mt-1"> from the Attendance page to start your day</p>
                   </div>
                 </div>
               )}
@@ -1120,7 +1120,7 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
                   <div className="text-center">
                     <AlertCircle className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
                     <p className="text-gray-600">Not checked in yet</p>
-                    <p className="text-sm text-gray-500 mt-1">Check in from the Attendance page to start your day</p>
+                    <p className="text-sm text-gray-500 mt-1"> from the Attendance page to start your day</p>
                   </div>
                 </div>
               )}
