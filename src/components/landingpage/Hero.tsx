@@ -8,20 +8,20 @@ const glowStyles = `
   .glow-text {
     color: #facc15; /* yellow-400 */
     text-shadow:
-      0 0 5px rgba(25, 20, 21, 0.9),
-      0 0 1px rgba(25, 20, 21, 0.8),
-      0 0 2px rgba(25, 20, 21, 0.7),
-      0 0 4px rgba(25, 20, 21, 0.6);
+      0 0 5px rgba(50, 20, 21, 0.9),
+      0 0 10px rgba(50, 20, 21, 0.8),
+      0 0 20px rgba(50, 20, 21, 0.7),
+      0 0 40px rgba(50, 20, 21, 0.6);
   }
 
   /* Headings stronger glow */
   .glow-heading {
     color: #fde047; /* yellow-300 */
     text-shadow:
-      0 0 8px rgba(25, 20, 21, 1),
-      0 0 1px rgba(25, 20, 21, 0.9),
-      0 0 3px rgba(25, 20, 21, 0.8),
-      0 0 5px rgba(25, 20, 21, 0.7);
+      0 0 8px rgba(50, 20, 21, 1),
+      0 0 15px rgba(50, 20, 21, 0.9),
+      0 0 30px rgba(50, 20, 21, 0.8),
+      0 0 50px rgba(50, 20, 21, 0.7);
   }
 
   /* ==== Glow Button Styles ==== */
@@ -35,9 +35,9 @@ const glowStyles = `
     cursor: pointer;
     transition: all 0.3s ease-in-out;
     box-shadow:
-      0 0 5px rgba(25, 20, 21, 0.9),
-      0 0 15px rgba(25, 20, 21, 0.7),
-      0 0 30px rgba(25, 20, 21, 0.6);
+      0 0 5px rgba(50, 20, 21, 0.9),
+      0 0 15px rgba(50, 20, 21, 0.7),
+      0 0 30px rgba(50, 20, 21, 0.6);
   }
 
   /* Hover Effect for Buttons */
@@ -147,7 +147,7 @@ const Hero = () => {
               <span className="block mb-2">Estrowork is your all-in-one workspace</span>
               <span className="relative block h-10 sm:h-12 md:h-16 lg:h-20">
                 <span className="glow-text text-base sm:text-xl md:text-3xl lg:text-4xl">
-                  Work Smarter, Deliver Fast
+                  {currentText}
                 </span>
                 <motion.span
                   className="inline-block w-1 h-6 sm:h-8 md:h-12 lg:h-16 bg-yellow-300 ml-1 align-middle"
