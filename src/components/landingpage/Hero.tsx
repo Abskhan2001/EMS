@@ -1,11 +1,13 @@
-import { Play, ArrowRight, Sparkles, Zap, Shield } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Play, ArrowRight, Sparkles, Zap, Shield, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
 const Hero = () => {
   const [currentText, setCurrentText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentVideo, setCurrentVideo] = useState('');
 
   useEffect(() => {
     const texts = ['Work Smarter, Deliver Faster — With Estrowork'];
@@ -29,6 +31,18 @@ const Hero = () => {
 
     return () => clearTimeout(timeout);
   }, [currentText, currentIndex, isDeleting]);
+
+  const openVideoModal = (videoId: string) => {
+    setCurrentVideo(videoId);
+    setIsModalOpen(true);
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeVideoModal = () => {
+    setIsModalOpen(false);
+    setCurrentVideo('');
+    document.body.style.overflow = 'unset';
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -137,6 +151,7 @@ const Hero = () => {
             </motion.button>
 
             <motion.button
+              onClick={() => openVideoModal('bGrfdYYwEes')}
               className="group border-2 border-yellow-400 text-yellow-400 px-8 py-4 rounded-xl font-semibold hover:bg-yellow-400 hover:text-blue-900 transition-all duration-300 backdrop-blur-sm bg-white/10"
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
@@ -159,54 +174,81 @@ const Hero = () => {
             className="relative max-w-5xl mx-auto"
           >
             <motion.div
-              className="relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-white/20"
+              className="relative bg-transparent rounded-2xl shadow-none p-0"
               whileHover={{ y: -10, rotateX: 5 }}
               transition={{ duration: 0.3 }}
               style={{ transformStyle: 'preserve-3d' }}
             >
-              {/* Glowing border effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-indigo-500/20 rounded-2xl blur-xl"></div>
+              {/* Enhanced glowing border with #7D22CE */}
+              <div
+                className="absolute inset-0 rounded-2xl pointer-events-none"
+                style={{
+                  boxShadow: `
+                    0 0 20px 6px #7D22CE,
+                    0 0 40px 12px #7D22CE,
+                    0 0 80px 24px #7D22CE,
+                    0 0 0 8px #7D22CE inset
+                  `
+                }}
+              ></div>
 
-              {/* YouTube Video */}
               <motion.div
-                className="relative w-full aspect-video rounded-xl shadow-lg overflow-hidden"
+                className="relative w-full aspect-video rounded-xl overflow-hidden"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 1.5, duration: 0.8 }}
               >
                 <iframe
-                  src="https://www.youtube.com/embed/bGrfdYYwEes"
+                  src="https://www.youtube.com/embed/bGrfdYYwEes?autoplay=1&mute=1"
                   title="Estrowork Demo Video"
                   className="w-full h-full rounded-xl border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 ></iframe>
               </motion.div>
-
-          {/* Text Over Image */}
-{/* <div className="absolute inset-0 flex items-center justify-center px-4 sm:px-6 md:px-8 lg:px-12 text-center">
-  <p className="text-white text-sm sm:text-base md:text-lg lg:text-2xl font-semibold bg-black/50 p-4 sm:p-6 md:p-8 rounded-xl backdrop-blur-md max-w-xl sm:max-w-2xl lg:max-w-4xl">
-    No need to juggle multiple tools like Jira, Asana, or Trello anymore.
-    <br />
-    <span className="text-yellow-300">Estrowork</span> brings everything together in a clean, easy-to-use platform that your entire team will love.
-    <br /><br />
-    Enjoy <span className="text-yellow-300">AI-powered insights</span>, <span className="text-yellow-300">location tracking</span>, and <span className="text-yellow-300">24/7 system availability</span>—all in one place.
-  </p>
-</div> */}
-
-{/* Static UI Elements */}
-<div className="absolute -top-2 sm:-top-4 -right-2 sm:-right-4 bg-yellow-400 text-blue-900 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg">
-  99.9% Uptime
-</div>
-
-<div className="absolute -bottom-2 sm:-bottom-4 -left-2 sm:-left-4 bg-yellow-400 text-blue-900 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg">
-  Real-time Analytics
-</div>
-
             </motion.div>
           </motion.div>
         </div>
       </motion.div>
+
+      {/* Video Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <motion.div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeVideoModal}
+          >
+            <motion.div
+              className="relative w-full max-w-4xl aspect-video bg-black rounded-xl overflow-hidden shadow-2xl"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button
+                onClick={closeVideoModal}
+                className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors duration-200"
+              >
+                <X size={24} />
+              </button>
+
+              {/* YouTube Video */}
+              <iframe
+                src={`https://www.youtube.com/embed/${currentVideo}?autoplay=1`}
+                title="Demo Video"
+                className="w-full h-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              ></iframe>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };
