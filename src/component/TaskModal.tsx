@@ -248,7 +248,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
 
       const totalMin = rows.reduce((s, r) => s + r.hoursMin, 0);
       const totalMax = rows.reduce((s, r) => s + r.hoursMax, 0);
-      const kpis = Math.max(6, Math.round((totalMin + totalMax) / 2 / 5));
+      const totalMid = (totalMin + totalMax) / 2;
+      const kpis = calculateDynamicKPIs(totalMid, 'Medium');
       return {
         difficulty: 'Medium',
         easyParts,
@@ -344,29 +345,59 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
     const totalMid = scaledRows.reduce((s, r) => s + r.hoursMid, 0);
     const totalMin = parseFloat((totalMid * 0.8).toFixed(2));
     const totalMax = parseFloat((totalMid * 1.4).toFixed(2));
-    let difficulty: Insights['difficulty'] = 'Easy';
-    if (totalMid >= 18 && totalMid < 40) difficulty = 'Medium';
-    else if (totalMid >= 40) difficulty = 'Hard';
-
+    const difficulty: Insights['difficulty'] = totalMid <= 6 ? 'Easy' : totalMid <= 18 ? 'Medium' : 'Hard';
+    
+    // Calculate dynamic KPIs based on time and difficulty
+    const dynamicKPIs = calculateDynamicKPIs(totalMid, difficulty);
+    
     // Simple part classification heuristics
     const t = inputText.toLowerCase();
     if (/setup|install|config|connect/.test(t)) easyParts.push('Environment setup and basic configuration');
     if (/api|endpoint|business|logic|feature/.test(t)) mediumParts.push('Refactoring business logic and endpoints');
     if (/migrat|downtime|complex|index|performance/.test(t)) hardParts.push('Complex migration/performance considerations');
 
-    const kpis = Math.max(3, Math.round(totalMid / 5));
-    return { difficulty, easyParts, mediumParts, hardParts, kpis, rows: scaledRows, totalMin, totalMax };
+    return { difficulty, easyParts, mediumParts, hardParts, kpis: dynamicKPIs, rows: scaledRows, totalMin, totalMax };
   };
 
-  // Humanized duration formatters
+  // Dynamic KPI calculation based on time and complexity
+  const calculateDynamicKPIs = (totalTime: number, difficulty: string): number => {
+    // KPIs are now exactly equal to total time in hours
+    const baseKPIs = Math.round(totalTime);
+    
+    // Adjust based on difficulty
+    let difficultyMultiplier = 1;
+    switch (difficulty) {
+      case 'Easy':
+        difficultyMultiplier = 0.9; // Slightly fewer KPIs for easy tasks
+        break;
+      case 'Medium':
+        difficultyMultiplier = 1.0; // Standard KPIs = exact hours
+        break;
+      case 'Hard':
+        difficultyMultiplier = 1.1; // Slightly more KPIs for complex tasks
+        break;
+    }
+    
+    // Apply difficulty adjustment and ensure minimum/maximum bounds
+    const adjustedKPIs = Math.round(baseKPIs * difficultyMultiplier);
+    return Math.max(1, Math.min(50, adjustedKPIs)); // Min 1, Max 50
+  };
+
+  // Humanized duration formatters with hours and minutes
   const formatDuration = (hours: number): string => {
     if (!isFinite(hours) || hours <= 0) return '0 minutes';
-    if (hours < 1) {
-      const mins = Math.max(1, Math.round(hours * 60));
-      return `${mins} ${mins === 1 ? 'minute' : 'minutes'}`;
+    
+    const totalMinutes = Math.round(hours * 60);
+    const wholeHours = Math.floor(totalMinutes / 60);
+    const remainingMinutes = totalMinutes % 60;
+    
+    if (wholeHours === 0) {
+      return `${remainingMinutes} ${remainingMinutes === 1 ? 'minute' : 'minutes'}`;
+    } else if (remainingMinutes === 0) {
+      return `${wholeHours} ${wholeHours === 1 ? 'hour' : 'hours'}`;
+    } else {
+      return `${wholeHours} ${wholeHours === 1 ? 'hour' : 'hours'} ${remainingMinutes} ${remainingMinutes === 1 ? 'minute' : 'minutes'}`;
     }
-    const roundedHours = Math.round(hours);
-    return `${roundedHours} ${roundedHours === 1 ? 'hour' : 'hours'}`;
   };
 
   // Single-value duration only (no ranges)
@@ -395,9 +426,11 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
     });
 
     const totalMid = reducedRows.reduce((s, r) => s + r.hoursMid, 0);
-    let difficulty: Insights['difficulty'] = 'Easy';
-    if (totalMid >= 18 && totalMid < 40) difficulty = 'Medium';
-    else if (totalMid >= 40) difficulty = 'Hard';
+    const difficulty: Insights['difficulty'] = totalMid <= 6 ? 'Easy' : totalMid <= 18 ? 'Medium' : 'Hard';
+    
+    // Calculate dynamic KPIs based on time and difficulty
+    const dynamicKPIs = calculateDynamicKPIs(totalMid, difficulty);
+    
     return (
       <div className="mt-4 p-2 sm:p-4 bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm">
         {/* Summary banner */}
@@ -471,7 +504,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onApply, onSkip,
           <div className="text-xs sm:text-sm font-medium text-gray-700">Total Estimated Time</div>
           <div className="text-xs sm:text-sm text-gray-800 font-semibold">{formatDuration(totalMid)}</div>
         </div>
-        <div className="mt-2 text-right text-xs text-gray-500">KPIs: <span className="font-semibold text-gray-600">{Math.max(1, Math.round(totalMid / 6))}</span></div>
+        <div className="mt-2 text-right text-xs text-gray-500">KPIs: <span className="font-semibold text-gray-600">{dynamicKPIs}</span></div>
       </div>
     );
   };
