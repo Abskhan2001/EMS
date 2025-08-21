@@ -1522,6 +1522,8 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
                   onChange={(e) => setTasks(e.target.value)}
                   onKeyDown={handleTaskSummaryKeyDown}
                   onBlur={handleTaskSummaryBlur}
+
+                
                   className="w-full p-3 sm:p-4 border border-indigo-500 rounded-lg sm:rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-100 transition-all resize-none bg-white shadow-sm text-sm sm:text-base"
                   rows={5}
                   placeholder="Enter your task summary here..."
