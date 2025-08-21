@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import Employeeprofile from './Employeeprofile';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { addEmployee } from '../services/adminService';
 import axios from 'axios';
 
@@ -69,6 +70,8 @@ const EmployeesDetails = () => {
   }>({});
   const [showLogModal, setShowLogModal] = useState(false);
   const [modalLogText, setModalLogText] = useState('');
+  const [formErrors, setFormErrors] = useState<Partial<FormDataType>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
 
@@ -120,7 +123,7 @@ const EmployeesDetails = () => {
     per_hour_pay: '',
     salary: '',
     slack_id: '',
-    joining_date: '',
+    joining_date: new Date().toISOString().split('T')[0],
     profile_image: null,
   });
 
@@ -149,7 +152,7 @@ const EmployeesDetails = () => {
     setLoading(true);
     try {
       const token = JSON.parse(localStorage.getItem('user') || '{}').token;
-      const response = await axios.get(`http://localhost:4001/api/v1/users/organization/${userProfile?.organization_id}`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/users/organization/${userProfile?.organization_id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setEmployees(response.data.users);
@@ -175,6 +178,20 @@ const EmployeesDetails = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    const errors = { ...formErrors };
+    const optionalFields = ['personal_email', 'slack_id', 'per_hour_pay'];
+
+    if (!optionalFields.includes(name) && !value) {
+      errors[name] = 'This field is required';
+    } else {
+      delete errors[name];
+    }
+
+    setFormErrors(errors);
+  };
+
   const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSignupData((prev) => ({ ...prev, [name]: value }));
@@ -182,9 +199,34 @@ const EmployeesDetails = () => {
 
   const handleSubmitEmployeeInfo = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const errors: Partial<FormDataType> = {};
+    const requiredFields: (keyof FormDataType)[] = [
+      'full_name',
+      'role',
+      'phone',
+      'email',
+      'location',
+      'profession',
+      'salary',
+      'joining_date',
+    ];
+
+    requiredFields.forEach((field) => {
+      if (!formData[field]) {
+        errors[field] = 'This field is required';
+      }
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const employeeData = new FormData();
-      Object.keys(formData).forEach(key => {
+      Object.keys(formData).forEach((key) => {
         if (key === 'profile_image' && formData.profile_image) {
           employeeData.append('profile_image', formData.profile_image);
         } else {
@@ -202,9 +244,19 @@ const EmployeesDetails = () => {
       resetForm();
       setShowForm(false);
       fetchEmployees();
-      toast.success('Employee created successfully!');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create employee');
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Employee created successfully!',
+      });
+    } catch (err: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: err.response?.data?.message || 'Failed to create employee',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
   const navigate = useNavigate();
@@ -220,7 +272,7 @@ const EmployeesDetails = () => {
       per_hour_pay: '',
       salary: '',
       slack_id: '',
-      joining_date: '',
+      joining_date: new Date().toISOString().split('T')[0],
       profile_image: null,
     });
     setSignupData({ email: '', password: '' });
@@ -268,6 +320,7 @@ const EmployeesDetails = () => {
 
   const handleCancel = () => {
     resetForm();
+    setFormErrors({});
     setShowForm(false);
   };
 
@@ -276,7 +329,7 @@ const EmployeesDetails = () => {
 
     try {
       const token = JSON.parse(localStorage.getItem('user') || '{}').token;
-      await axios.delete(`http://localhost:4001/api/v1/users/${id}`, {
+      await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/users/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setEmployees((prev) => prev.filter((emp) => emp.id !== id));
@@ -373,27 +426,36 @@ const EmployeesDetails = () => {
           </div>
           <form onSubmit={handleSubmitEmployeeInfo} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                required
-              />
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={signupData.password}
-                onChange={handleSignupChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                required
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  onBlur={handleBlur}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
+                />
+                {formErrors.email && <p className="text-red-500 text-xs">{formErrors.email}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Password"
+                  value={signupData.password}
+                  onChange={handleSignupChange}
+                  onBlur={handleBlur}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
+                />
+                {formErrors.password && <p className="text-red-500 text-xs">{formErrors.password}</p>}
+              </div>
               {Object.entries(formData).map(
                 ([field, value]) =>
-                  field !== 'profile_image' && field !== 'email' && (
+                  field !== 'profile_image' &&
+                  field !== 'email' && (
                     <div key={field}>
                       <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
                         {field.replace(/_/g, ' ')}
@@ -403,7 +465,8 @@ const EmployeesDetails = () => {
                           name={field}
                           value={value as string}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
+                          onBlur={handleBlur}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
                         >
                           <option value="employee">Member</option>
                           <option value="manager">Project Manager</option>
@@ -416,9 +479,11 @@ const EmployeesDetails = () => {
                           name={field}
                           value={value as string}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
+                          onBlur={handleBlur}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
                         />
                       )}
+                      {formErrors[field] && <p className="text-red-500 text-xs">{formErrors[field]}</p>}
                     </div>
                   )
               )}
@@ -438,7 +503,7 @@ const EmployeesDetails = () => {
                           : null,
                     }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md"
                 />
               </div>
             </div>
@@ -452,9 +517,10 @@ const EmployeesDetails = () => {
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 text-sm font-medium rounded-lg bg-[#9A00FF] text-white hover:bg-[#8a00e6] shadow-sm"
+                disabled={isSubmitting}
+                className="px-5 py-2.5 text-sm font-medium rounded-lg bg-[#9A00FF] text-white hover:bg-[#8a00e6] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Save Employee
+                {isSubmitting ? 'Saving...' : 'Save Employee'}
               </button>
             </div>
           </form>
@@ -542,6 +608,9 @@ const EmployeesDetails = () => {
                         View and manage your team members
                       </p>
                     </div>
+
+
+                    
                     <div className="flex items-center gap-3">
                       <div className="relative w-48">
                         <input

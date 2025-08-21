@@ -19,7 +19,7 @@ interface FormData {
   organizationSlug: string;
 }
 
-interface ValidationErrors {
+interface ValidationErrors extends Partial<Record<keyof FormData, string>> {
   name?: string;
   email?: string;
   password?: string;
@@ -47,7 +47,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [status, setStatus] = useState<SignupStatus>('idle');
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -157,12 +157,17 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
       [field]: value
     }));
 
-    // Clear validation error for this field if user has already submitted and is fixing errors
-    if (hasSubmitted && validationErrors[field]) {
-      setValidationErrors(prev => ({ ...prev, [field]: undefined }));
+    // Validate field if it has been touched
+    if (touched[field]) {
+      validateField(field, value);
     }
 
     if (error) setError(null);
+  };
+
+  const handleBlur = (field: keyof FormData) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    validateField(field, formData[field]);
   };
 
   const handleClose = () => {
@@ -182,7 +187,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
     setValidationErrors({});
     setShowSuccessAlert(false);
     setStatus('idle');
-    setHasSubmitted(false);
+    setTouched({});
     onClose();
   };
 
@@ -213,7 +218,19 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setHasSubmitted(true);
+
+    // Mark all fields as touched to show errors
+    const allFieldsTouched: Partial<Record<keyof FormData, boolean>> = {
+      name: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    };
+    if (formData.accountType === 'organization') {
+      allFieldsTouched.organizationName = true;
+      allFieldsTouched.organizationSlug = true;
+    }
+    setTouched(allFieldsTouched);
 
     // Validate all fields
     if (!validateAllFields()) {
@@ -261,8 +278,9 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
-  const renderInputError = (error?: string) => {
-    if (!error || !hasSubmitted) return null;
+  const renderInputError = (field: keyof FormData) => {
+    const error = validationErrors[field];
+    if (!error || !touched[field]) return null;
     return (
       <div className="flex items-center mt-1 text-red-600 text-sm">
         <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
@@ -409,14 +427,15 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                       type="text"
                       value={formData.name}
                       onChange={(e) => handleInputChange('name', e.target.value)}
+                      onBlur={() => handleBlur('name')}
                       className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 ${
-                        hasSubmitted && validationErrors.name ? 'border-red-500' : 'border-gray-300'
+                        touched.name && validationErrors.name ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter your full name"
                       required
                     />
                   </div>
-                  {renderInputError(validationErrors.name)}
+                  {renderInputError('name')}
                 </div>
 
                 {/* Email Field */}
@@ -430,14 +449,15 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
+                      onBlur={() => handleBlur('email')}
                       className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 ${
-                        hasSubmitted && validationErrors.email ? 'border-red-500' : 'border-gray-300'
+                        touched.email && validationErrors.email ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter your email address"
                       required
                     />
                   </div>
-                  {renderInputError(validationErrors.email)}
+                  {renderInputError('email')}
                 </div>
 
                 {/* Password Field */}
@@ -451,8 +471,9 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                       type={showPassword ? "text" : "password"}
                       value={formData.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
+                      onBlur={() => handleBlur('password')}
                       className={`w-full pl-10 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 ${
-                        hasSubmitted && validationErrors.password ? 'border-red-500' : 'border-gray-300'
+                        touched.password && validationErrors.password ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Create a strong password"
                       required
@@ -465,7 +486,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
-                  {renderInputError(validationErrors.password)}
+                  {renderInputError('password')}
                   <div className="mt-1 text-xs text-gray-500">
                     Password must be at least 8 characters with uppercase, lowercase, number, and special character
                   </div>
@@ -482,8 +503,9 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                       type={showConfirmPassword ? "text" : "password"}
                       value={formData.confirmPassword}
                       onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                      onBlur={() => handleBlur('confirmPassword')}
                       className={`w-full pl-10 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 ${
-                        hasSubmitted && validationErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                        touched.confirmPassword && validationErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Confirm your password"
                       required
@@ -496,7 +518,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                       {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
-                  {renderInputError(validationErrors.confirmPassword)}
+                  {renderInputError('confirmPassword')}
                 </div>
 
                 {/* Organization Fields */}
@@ -519,14 +541,15 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                             type="text"
                             value={formData.organizationName}
                             onChange={(e) => handleInputChange('organizationName', e.target.value)}
+                            onBlur={() => handleBlur('organizationName')}
                             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 ${
-                              hasSubmitted && validationErrors.organizationName ? 'border-red-500' : 'border-gray-300'
+                              touched.organizationName && validationErrors.organizationName ? 'border-red-500' : 'border-gray-300'
                             }`}
                             placeholder="Enter organization name"
                             required={formData.accountType === 'organization'}
                           />
                         </div>
-                        {renderInputError(validationErrors.organizationName)}
+                        {renderInputError('organizationName')}
                       </div>
 
                       <div>
@@ -541,15 +564,16 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                             type="text"
                             value={formData.organizationSlug}
                             onChange={(e) => handleInputChange('organizationSlug', e.target.value)}
+                            onBlur={() => handleBlur('organizationSlug')}
                             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 ${
-                              hasSubmitted && validationErrors.organizationSlug ? 'border-red-500' : 'border-gray-300'
+                              touched.organizationSlug && validationErrors.organizationSlug ? 'border-red-500' : 'border-gray-300'
                             }`}
                             placeholder="organization-slug"
                             pattern="[a-z0-9\-]+"
                             required={formData.accountType === 'organization'}
                           />
                         </div>
-                        {renderInputError(validationErrors.organizationSlug)}
+                        {renderInputError('organizationSlug')}
                         <p className="text-xs text-gray-500 mt-1">
                           This will be your unique organization identifier (lowercase, numbers, and hyphens only)
                         </p>
