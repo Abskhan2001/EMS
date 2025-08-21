@@ -1,0 +1,45 @@
+/* ==== Glow Text Styles ==== */
+.glow-text {
+  color: #facc15; /* yellow-400 */
+  text-shadow:
+    0 0 5px rgba(250, 204, 21, 0.9),
+    0 0 10px rgba(250, 204, 21, 0.8),
+    0 0 20px rgba(250, 204, 21, 0.7),
+    0 0 40px rgba(250, 204, 21, 0.6);
+}
+
+/* Headings stronger glow */
+.glow-heading {
+  color: #fde047; /* yellow-300 */
+  text-shadow:
+    0 0 8px rgba(250, 204, 21, 1),
+    0 0 15px rgba(250, 204, 21, 0.9),
+    0 0 30px rgba(250, 204, 21, 0.8),
+    0 0 50px rgba(250, 204, 21, 0.7);
+}
+
+/* ==== Glow Button Styles ==== */
+.glow-btn {
+  background-color: #facc15; /* yellow-400 */
+  color: #000; /* readable on yellow */
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  box-shadow:
+    0 0 5px rgba(250, 204, 21, 0.9),
+    0 0 15px rgba(250, 204, 21, 0.7),
+    0 0 30px rgba(250, 204, 21, 0.6);
+}
+
+/* Hover Effect for Buttons */
+.glow-btn:hover {
+  background-color: #fde047; /* lighter yellow */
+  box-shadow:
+    0 0 10px rgba(250, 204, 21, 1),
+    0 0 25px rgba(250, 204, 21, 0.9),
+    0 0 45px rgba(250, 204, 21, 0.8);
+  transform: scale(1.05);
+}

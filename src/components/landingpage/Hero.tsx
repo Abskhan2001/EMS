@@ -2,6 +2,55 @@ import { Play, ArrowRight, Sparkles, Zap, Shield, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
+// Add glow styles
+const glowStyles = `
+  /* ==== Glow Text Styles ==== */
+  .glow-text {
+    color: #facc15; /* yellow-400 */
+    text-shadow:
+      0 0 5px rgba(25, 20, 21, 0.9),
+      0 0 1px rgba(25, 20, 21, 0.8),
+      0 0 2px rgba(25, 20, 21, 0.7),
+      0 0 4px rgba(25, 20, 21, 0.6);
+  }
+
+  /* Headings stronger glow */
+  .glow-heading {
+    color: #fde047; /* yellow-300 */
+    text-shadow:
+      0 0 8px rgba(25, 20, 21, 1),
+      0 0 1px rgba(25, 20, 21, 0.9),
+      0 0 3px rgba(25, 20, 21, 0.8),
+      0 0 5px rgba(25, 20, 21, 0.7);
+  }
+
+  /* ==== Glow Button Styles ==== */
+  .glow-btn {
+    background-color: #facc15; /* yellow-400 */
+    color: #000; /* readable on yellow */
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    box-shadow:
+      0 0 5px rgba(25, 20, 21, 0.9),
+      0 0 15px rgba(25, 20, 21, 0.7),
+      0 0 30px rgba(25, 20, 21, 0.6);
+  }
+
+  /* Hover Effect for Buttons */
+  .glow-btn:hover {
+    background-color: #fde047; /* lighter yellow */
+    box-shadow:
+      0 0 10px rgba(25, 20, 21, 1),
+      0 0 25px rgba(25, 20, 21, 0.9),
+      0 0 45px rgba(25, 20, 21, 0.8);
+    transform: scale(1.05);
+  }
+`;
+
 const Hero = () => {
   const [currentText, setCurrentText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -10,7 +59,7 @@ const Hero = () => {
   const [currentVideo, setCurrentVideo] = useState('');
 
   useEffect(() => {
-    const texts = ['Work Smarter, Deliver Faster — With Estrowork'];
+    const texts = ['Work Smarter, Deliver Faster — With Estrowork'];
 
     const timeout = setTimeout(() => {
       const current = texts[currentIndex];
@@ -68,26 +117,40 @@ const Hero = () => {
 
   return (
     <section id="home" className="relative min-h-screen pt-16 bg-gradient-to-br from-blue-600 to-purple-700">
-      {/* Simple Background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-700/10"></div>
+      {/* Inject glow styles */}
+      <style dangerouslySetInnerHTML={{ __html: glowStyles }} />
 
-      <motion.div
-        className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <div className="text-center">
+      {/* Text and Buttons Area with Background Image - Full Width */}
+      <div className="relative w-full">
+        {/* Background Image for text area only - Full Width */}
+        <div
+          className="absolute inset-0 w-full bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/bg-1.jpg)',
+            height: '750px'
+          }}
+        ></div>
+
+        {/* Overlay for better text readability */}
+        {/* <div className="absolute inset-0 bg-gradient-to-br from-blue-600/70 to-purple-700/70" style={{ height: '750px' }}></div> */}
+
+        {/* Content */}
+        <motion.div
+          className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           {/* Main Heading with Typewriter Effect */}
           <motion.div variants={itemVariants} className="mb-6">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white leading-tight">
-              <span className="block mb-2">Estrowork is your all-in-one workspace—</span>
-              <span className="relative">
-                <span className="text-yellow-300 text-1xl md:text-3xl lg:text-4xl">
-                  {currentText}
+            <h1 className="glow-heading text-6xl font-bold">
+              <span className="block mb-2">Estrowork is your all-in-one workspace</span>
+              <span className="relative block h-10 sm:h-12 md:h-16 lg:h-20">
+                <span className="glow-text text-base sm:text-xl md:text-3xl lg:text-4xl">
+                  Work Smarter, Deliver Fast
                 </span>
                 <motion.span
-                  className="inline-block w-1 h-12 md:h-16 bg-yellow-300 ml-1"
+                  className="inline-block w-1 h-6 sm:h-8 md:h-12 lg:h-16 bg-yellow-300 ml-1 align-middle"
                   animate={{ opacity: [0, 1, 0] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 />
@@ -98,7 +161,7 @@ const Hero = () => {
           {/* Subtitle */}
           <motion.p
             variants={itemVariants}
-            className="text-xl md:text-2xl text-blue-100 mb-8 max-w-4xl mx-auto leading-relaxed"
+            className="glow-text text-lg sm:text-xl md:text-2xl mb-8 max-w-4xl mx-auto leading-relaxed"
           >
             Manage your team, organize your projects, assign tasks, and even invite clients to collaborate on specific projects in real-time.
           </motion.p>
@@ -134,11 +197,10 @@ const Hero = () => {
             className="flex flex-col sm:flex-row gap-4 justify-center mb-16"
           >
             <motion.button
-              className="group relative bg-yellow-400 text-blue-900 px-8 py-4 rounded-xl font-bold shadow-xl overflow-hidden"
+              className="glow-btn group relative px-8 py-4 rounded-xl font-bold overflow-hidden"
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >
-              <div className="absolute inset-0 bg-yellow-300 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="relative flex items-center justify-center gap-2">
                 Start Free Trial
                 <motion.div
@@ -152,7 +214,7 @@ const Hero = () => {
 
             <motion.button
               onClick={() => openVideoModal('bGrfdYYwEes')}
-              className="group border-2 border-yellow-400 text-yellow-400 px-8 py-4 rounded-xl font-semibold hover:bg-yellow-400 hover:text-blue-900 transition-all duration-300 backdrop-blur-sm bg-white/10"
+              className="glow-btn group px-8 py-4 rounded-xl font-semibold"
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -167,8 +229,16 @@ const Hero = () => {
               </div>
             </motion.button>
           </motion.div>
+        </motion.div>
+      </div>
 
-          {/* Dashboard Preview with Overlaid Text */}
+      {/* Dashboard Preview with Overlaid Text */}
+      <motion.div
+        className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
           <motion.div
             variants={itemVariants}
             className="relative max-w-5xl mx-auto"
@@ -208,7 +278,6 @@ const Hero = () => {
               </motion.div>
             </motion.div>
           </motion.div>
-        </div>
       </motion.div>
 
       {/* Video Modal */}
