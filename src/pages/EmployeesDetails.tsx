@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { supabase, supabaseAdmin } from '../lib/supabase';
 import Employeeprofile from './Employeeprofile';
 import toast from 'react-hot-toast';
+import { addEmployee } from '../services/adminService';
+import axios from 'axios';
 
 import {
   FiPlus,
@@ -144,397 +145,27 @@ const EmployeesDetails = () => {
     setShowLogModal(true);
   };
 
-
-
-
-
-  const [step, setStep] = useState(1);
-  const [isCreatingEmployee, setIsCreatingEmployee] = useState(false);
-
-  // Fetch employees with their projects and tasks
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      // Fetch employees
-      const { data: employeesData, error: employeesError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('organization_id', userProfile?.organization_id)
-        .neq('role', 'client'); // Exclude users with role equal to "client"
-      if (employeesError) throw employeesError;
-
-      // Fetch projects
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select('id, title, devops');
-      if (projectsError) throw projectsError;
-
-      // Fetch tasks
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks_of_projects')
-        .select('*');
-      if (tasksError) throw tasksError;
-
-      // Fetch daily logs from tasks_of_projects
-      const { data: dailyLogsData, error: dailyLogsError } = await supabase
-        .from('tasks_of_projects')
-        .select('userid, daily_log, action_date')
-        .not('daily_log', 'is', null)
-        .order('action_date', { ascending: false });
-      if (dailyLogsError) {
-        console.error('Error fetching daily logs:', dailyLogsError.message);
-      }
-
-      const latestDailyLogs: { [key: string]: any } = {};
-      if (dailyLogsData) {
-        dailyLogsData.forEach((row) => {
-          if (!row.userid) return;
-          if (!latestDailyLogs[row.userid]) {
-            latestDailyLogs[row.userid] = row.daily_log;
-          }
-        });
-      }
-
-      // Calculate period start date
-      let startDate;
-      const today = new Date();
-      if (performancePeriod === 'daily') {
-        startDate = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate()
-        );
-      } else if (performancePeriod === 'weekly') {
-        const dayOfWeek = today.getDay();
-        startDate = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate() - dayOfWeek
-        );
-      } else if (performancePeriod === 'monthly') {
-        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-      }
-
-      if (!startDate) return;
-
-      // Fetch ratings
-      const { data: ratingsData, error: ratingsError } = await supabase
-        .from('dailylog')
-        .select('userid, rating, rated_at')
-        .not('rating', 'is', null)
-        .gte('rated_at', startDate.toISOString());
-      if (ratingsError) {
-        console.error('Error fetching ratings:', ratingsError.message);
-      }
-
-      const latestRatings: { [key: string]: any } = {};
-      if (ratingsData) {
-        ratingsData.forEach((row) => {
-          if (!row.userid) return;
-          if (
-            !latestRatings[row.userid] ||
-            new Date(row.rated_at) >
-              new Date(latestRatings[row.userid]?.rated_at)
-          ) {
-            latestRatings[row.userid] = row;
-          }
-        });
-      }
-
-      // === ✅ Fetch today's daily logs using `userid` ===
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const tomorrowStart = new Date(todayStart);
-      tomorrowStart.setDate(todayStart.getDate() + 1);
-
-      const { data: todayLogs, error: todayLogsError } = await supabase
-        .from('dailylog')
-        .select('userid, dailylog')
-        .gte('created_at', todayStart.toISOString())
-        .lt('created_at', tomorrowStart.toISOString());
-
-      if (todayLogsError) {
-        console.error("Error fetching today's logs:", todayLogsError.message);
-      }
-
-      const dailyLogMap: { [key: string]: string } = {};
-      todayLogs?.forEach((log) => {
-        if (log.userid && !dailyLogMap[log.userid]) {
-          dailyLogMap[log.userid] = log.dailylog;
-        }
+      const token = JSON.parse(localStorage.getItem('user') || '{}').token;
+      const response = await axios.get(`http://localhost:4001/api/v1/users/organization/${userProfile?.organization_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      // Final processing
-      const employeesWithProjects = employeesData.map((employee) => {
-        const employeeProjects = projectsData.filter((project) =>
-          project.devops?.some((dev: any) => dev.id === employee.id)
-        );
-
-        const employeeTasks = tasksData.filter(
-          (task) =>
-            task.devops?.some((dev: any) => dev.id === employee.id) &&
-            task.status?.toLowerCase() !== 'done'
-        );
-
-        const totalKPI = employeeTasks.reduce(
-          (sum, task) => sum + (Number(task.score) || 0),
-          0
-        );
-
-        const employeeTaskscompleted = tasksData.filter(
-          (task) =>
-            task.devops?.some((dev: any) => dev.id === employee.id) &&
-            task.status?.toLowerCase() === 'done'
-        );
-
-        const completedKPI = employeeTaskscompleted.reduce(
-          (sum, task) => sum + (Number(task.score) || 0),
-          0
-        );
-
-        const latestRating = latestRatings[employee.id]?.rating || null;
-
-        return {
-          ...employee,
-          joining_date: employee.joining_date || 'NA',
-          projects: employeeProjects,
-          projectid: employeeProjects.map((project) => project.id),
-          TotalKPI: totalKPI,
-          activeTaskCount: employeeTasks.length,
-          completedKPI: completedKPI,
-          rating: latestRating,
-          daily_log: dailyLogMap[employee.id] || 'No task today',
-        };
-      });
-
-      setEmployees(employeesWithProjects);
-      setLoading(false);
+      setEmployees(response.data.users);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching employees:', error);
+      toast.error('Failed to fetch employees');
+    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEmployees();
-  }, [performancePeriod]); // <-- Add performancePeriod as dependency
-
-  // Handle task assignment
-  const handleAssignClick = async (employee: Employee) => {
-    setCurrentEmployee(employee);
-    setEmployeeId(employee.id);
-
-    const { data: allProjects, error } = await supabase
-      .from('projects')
-      .select('*');
-
-    if (error) {
-      console.error('Error fetching projects:', error.message);
-      return;
+    if (userProfile?.organization_id) {
+      fetchEmployees();
     }
-
-    const userProjects = allProjects.filter((project) =>
-      project.devops?.some((item: any) => item.id === employee.id)
-    );
-
-    setUserProjects(userProjects);
-    setAssignment((prev) => ({
-      ...prev,
-      project: userProjects[0]?.title || '',
-    }));
-
-    setShowModal(true);
-  };
-
-  const handleAssignSubmit = async () => {
-    // Show loading toast
-    const loadingToast = toast.loading('Assigning task...');
-
-    try {
-      const selectedProject = userProjects.find(
-        (p) => p.title === assignment.project
-      );
-      if (!selectedProject) {
-        throw new Error('Project not found');
-      }
-
-      // Validate required fields
-      if (!assignment.title.trim()) {
-        throw new Error('Task title is required');
-      }
-
-      // Insert the task into the database
-      const { data: insertedTask, error } = await supabase
-        .from('tasks_of_projects')
-        .insert([
-          {
-            project_id: selectedProject.id,
-            title: assignment.title,
-            description: assignment.description,
-            devops: [{ id: employeeId, name: currentEmployee?.full_name }],
-            status: 'todo',
-            score: assignment.score,
-            created_at: new Date().toISOString(),
-          },
-        ])
-        .select(); // Return the inserted task
-
-      if (error) throw error;
-
-      // Get the inserted task ID
-      const taskId = insertedTask?.[0]?.id;
-
-      // Get the employee's name for the notification
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('full_name')
-        .eq('id', employeeId)
-        .single();
-
-      if (userError) {
-        console.error('Error fetching user data:', userError);
-      } else {
-        // Send notification to all devices of the employee
-        try {
-          console.log(
-            `Attempting to send notification to employee ${employeeId}`
-          );
-
-          // Always use the userId parameter to try both the fcm_tokens table and users table
-          const notificationPayload = {
-            title: 'New Task Assigned',
-            body: `You have been assigned a new task: ${assignment.title} in project ${selectedProject.title}`,
-            userId: employeeId, // This will try all devices
-            taskId: taskId,
-            projectId: selectedProject.id,
-            url: `/taskboard?projectId=${selectedProject.id}`,
-          };
-
-          // Send the notification
-          console.log(
-            'Sending notification with payload:',
-            notificationPayload
-          );
-          const response = await fetch(
-            'https://ems-server-0bvq.onrender.com/send-singlenotifications',
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(notificationPayload),
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-              console.log(
-                `Notification sent to ${userData?.full_name || 'employee'} on ${
-                  result.successCount
-                } device(s)`
-              );
-              console.log('Notification result:', result);
-            } else {
-              console.log(
-                `No notifications sent to ${
-                  userData?.full_name || 'employee'
-                } - user may not have enabled notifications`
-              );
-              console.log('Notification result:', result);
-
-              // If the user has no valid tokens, we need to regenerate one
-              if (
-                result.message &&
-                result.message.includes('No valid FCM tokens found')
-              ) {
-                // Show a warning toast instead of alert
-                toast('Employee needs to enable notifications', {
-                  icon: '⚠️',
-                  duration: 4000,
-                });
-
-                // Clear any invalid tokens for this user
-                try {
-                  const { error: clearError } = await supabase
-                    .from('users')
-                    .update({ fcm_token: null })
-                    .eq('id', employeeId);
-
-                  if (!clearError) {
-                    console.log(
-                      `Cleared invalid tokens for user ${employeeId}`
-                    );
-                  }
-
-                  // Also clear from fcm_tokens table
-                  const { error: deleteError } = await supabase
-                    .from('fcm_tokens')
-                    .delete()
-                    .eq('user_id', employeeId);
-
-                  if (!deleteError) {
-                    console.log(
-                      `Cleared all tokens from fcm_tokens table for user ${employeeId}`
-                    );
-                  }
-                } catch (clearError) {
-                  console.error('Error clearing invalid tokens:', clearError);
-                }
-              }
-            }
-          } else {
-            console.log(
-              `Failed to send notification to ${
-                userData?.full_name || 'employee'
-              } - server returned ${response.status}`
-            );
-            const errorText = await response.text();
-            console.error('Error response:', errorText);
-          }
-        } catch (notificationError) {
-          console.error('Error sending notification:', notificationError);
-          // Non-critical error, continue with task assignment
-        }
-      }
-
-      // Reset form and close modal
-      setAssignment({
-        title: '',
-        project: '',
-        description: '',
-        score: '',
-      });
-      setShowModal(false);
-
-      // Refresh data
-      await fetchEmployees();
-
-      // Dismiss loading toast and show success
-      toast.dismiss(loadingToast);
-      toast.success(
-        `Task "${assignment.title}" assigned to ${
-          currentEmployee?.full_name || 'employee'
-        } successfully!`,
-        {
-          duration: 4000,
-          icon: '✅',
-        }
-      );
-    } catch (err) {
-      console.error('Error assigning task:', err);
-
-      // Dismiss loading toast and show error
-      toast.dismiss(loadingToast);
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : 'Failed to assign task. Please try again.',
-        {
-          duration: 5000,
-          icon: '❌',
-        }
-      );
-    }
-  };
+  }, [userProfile, performancePeriod]); // <-- Add performancePeriod as dependency
 
   // Employee form handlers
   const handleInputChange = (
@@ -549,122 +180,31 @@ const EmployeesDetails = () => {
     setSignupData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmitSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsCreatingEmployee(true);
-
-    try {
-
-      // Use admin client to create user without affecting current session
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email: signupData.email,
-        password: signupData.password,
-        email_confirm: true, // Skip email confirmation
-      });
-
-      if (error) throw error;
-      if (data.user) {
-        setEmployeeId(data.user.id);
-        // Update formData with the email from signup
-        setFormData((prev) => ({ ...prev, email: signupData.email }));
-        setStep(2);
-      }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsCreatingEmployee(false);
-    }
-  };
-
   const handleSubmitEmployeeInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      let profileImageUrl = null;
-
-      if (formData.profile_image) {
-        const fileExt = formData.profile_image.name.split('.').pop();
-        const fileName = `${employeeId}_profile.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('profilepics')
-          .upload(fileName, formData.profile_image);
-
-        if (uploadError) throw uploadError;
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from('profilepics').getPublicUrl(fileName);
-
-        profileImageUrl = publicUrl;
-      }
-
-      const updateData = {
-        full_name: formData.full_name,
-        email: formData.email,
-        role: formData.role,
-        phone_number: formData.phone,
-        personal_email: formData.personal_email,
-        location: formData.location,
-        profession: formData.profession,
-        per_hour_pay: formData.per_hour_pay
-          ? Number(formData.per_hour_pay)
-          : null,
-        salary: formData.salary ? Number(formData.salary) : null,
-        slack_id: formData.slack_id,
-        profile_image: profileImageUrl,
-        joining_date: formData.joining_date || new Date().toISOString(),
-        organization_id: userProfile?.organization_id, // Ensure new employee belongs to same organization
-      };
-
-      console.log('Updating user with data:', updateData);
-      console.log('Employee ID:', employeeId);
-
-      // First check if user record exists
-      const { error: fetchError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', employeeId)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching user:', fetchError);
-        // If user doesn't exist, create it first
-        if (fetchError.code === 'PGRST116') {
-          console.log('User record does not exist, creating it...');
-          const { error: insertError } = await supabase.from('users').insert({
-            id: employeeId,
-            email: formData.email,
-            full_name: formData.full_name || 'New Employee',
-            role: 'employee',
-            organization_id: userProfile?.organization_id,
-          });
-
-          if (insertError) {
-            console.error('Error creating user record:', insertError);
-            throw insertError;
-          }
+      const employeeData = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (key === 'profile_image' && formData.profile_image) {
+          employeeData.append('profile_image', formData.profile_image);
         } else {
-          throw fetchError;
+          employeeData.append(key, formData[key]);
         }
+      });
+      employeeData.append('password', signupData.password);
+      const organizationId = localStorage.getItem('organizationId');
+      if (organizationId) {
+        employeeData.append('organization_id', organizationId);
       }
 
-      const { error } = await supabase
-        .from('users')
-        .update(updateData)
-        .eq('id', employeeId);
-
-      if (error) {
-        console.error('Update error:', error);
-        throw error;
-      }
+      await addEmployee(employeeData);
 
       resetForm();
       setShowForm(false);
-      setStep(1);
       fetchEmployees();
-      alert('Employee created successfully!');
+      toast.success('Employee created successfully!');
     } catch (err) {
-      alert(err instanceof Error ? err.message : String(err));
+      toast.error(err instanceof Error ? err.message : 'Failed to create employee');
     }
   };
   const navigate = useNavigate();
@@ -729,27 +269,21 @@ const EmployeesDetails = () => {
   const handleCancel = () => {
     resetForm();
     setShowForm(false);
-    setStep(1);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this employee?')) return;
 
     try {
-      const { error } = await supabase.from('users').delete().eq('id', id);
-      if (error) throw error;
-
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
-        id
-      );
-
-      if (authError) {
-        console.warn('Failed to delete from auth:', authError);
-      }
-
+      const token = JSON.parse(localStorage.getItem('user') || '{}').token;
+      await axios.delete(`http://localhost:4001/api/v1/users/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+      toast.success('Employee deleted successfully');
     } catch (err) {
       console.error('Error deleting employee:', err);
+      toast.error('Failed to delete employee');
     }
   };
 
@@ -829,9 +363,7 @@ const EmployeesDetails = () => {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">
-              {step === 1 ? 'Create Account' : 'Employee Details'}
-            </h2>
+            <h2 className="text-xl font-bold text-gray-800">Add New Employee</h2>
             <button
               onClick={handleCancel}
               className="text-gray-400 hover:text-gray-600"
@@ -839,253 +371,90 @@ const EmployeesDetails = () => {
               <FiX className="w-5 h-5" />
             </button>
           </div>
-
-          <div className="flex mb-6">
-            <div
-              className={`flex-1 border-t-2 ${
-                step >= 1 ? 'border-[#9A00FF]' : 'border-gray-200'
-              }`}
-            ></div>
-            <div
-              className={`flex-1 border-t-2 ${
-                step >= 2 ? 'border-[#9A00FF]' : 'border-gray-200'
-              }`}
-            ></div>
-          </div>
-
-          {step === 1 ? (
-            <form onSubmit={handleSubmitSignUp} className="space-y-4">
-              {/* Signup form fields */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={signupData.email}
-                  onChange={handleSignupChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={signupData.password}
-                  onChange={handleSignupChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                  required
-                />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="px-5 py-2.5 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 text-sm font-medium rounded-lg bg-[#9A00FF] text-white hover:bg-[#8a00e6] shadow-sm"
-                >
-                  Continue
-                </button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleSubmitEmployeeInfo} className="space-y-4">
-              {/* Employee details form */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(formData).map(
-                  ([field, value]) =>
-                    field !== 'profile_image' && (
-                      <div key={field}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
-                          {field.replace(/_/g, ' ')}
-                        </label>
-                        {field === 'role' ? (
-                          <select
-                            name={field}
-                            value={value as string}
-                            onChange={handleInputChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                          >
-                            <option value="employee">Employee</option>
-                            <option value="manager">Manager</option>
-                            <option value="admin">Admin</option>
-                            <option value="client">Client</option>
-                          </select>
-                        ) : (
-                          <input
-                            type={field === 'joining_date' ? 'date' : 'text'}
-                            name={field}
-                            value={
-                              field === 'email'
-                                ? signupData.email
-                                : (value as string)
-                            }
-                            onChange={handleInputChange}
-                            disabled={field === 'email'}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent disabled:bg-gray-100"
-                          />
-                        )}
-                      </div>
-                    )
-                )}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Profile Image
-                  </label>
-                  <input
-                    type="file"
-                    name="profile_image"
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        profile_image:
-                          e.target.files && e.target.files[0]
-                            ? e.target.files[0]
-                            : null,
-                      }))
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="px-5 py-2.5 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 text-sm font-medium rounded-lg bg-[#9A00FF] text-white hover:bg-[#8a00e6] shadow-sm"
-                >
-                  Save Employee
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderAssignTaskModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-800">
-              Assign Task to {currentEmployee?.full_name}
-            </h2>
-            <button
-              onClick={() => setShowModal(false)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <FiX className="w-5 h-5" />
-            </button>
-          </div>
-
-          <form className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Title *
-              </label>
+          <form onSubmit={handleSubmitEmployeeInfo} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input
-                type="text"
+                type="email"
+                name="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                value={assignment.title}
-                onChange={(e) =>
-                  setAssignment((prev) => ({ ...prev, title: e.target.value }))
-                }
                 required
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Project
-              </label>
-              {userProjects.length > 0 ? (
-                <select
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                  value={assignment.project}
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={signupData.password}
+                onChange={handleSignupChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
+                required
+              />
+              {Object.entries(formData).map(
+                ([field, value]) =>
+                  field !== 'profile_image' && field !== 'email' && (
+                    <div key={field}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
+                        {field.replace(/_/g, ' ')}
+                      </label>
+                      {field === 'role' ? (
+                        <select
+                          name={field}
+                          value={value as string}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
+                        >
+                          <option value="employee">Member</option>
+                          <option value="manager">Project Manager</option>
+                          <option value="admin">Admin</option>
+                          <option value="client">Client</option>
+                        </select>
+                      ) : (
+                        <input
+                          type={field === 'joining_date' ? 'date' : 'text'}
+                          name={field}
+                          value={value as string}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
+                        />
+                      )}
+                    </div>
+                  )
+              )}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Profile Image
+                </label>
+                <input
+                  type="file"
+                  name="profile_image"
                   onChange={(e) =>
-                    setAssignment((prev) => ({
+                    setFormData((prev) => ({
                       ...prev,
-                      project: e.target.value,
+                      profile_image:
+                        e.target.files && e.target.files[0]
+                          ? e.target.files[0]
+                          : null,
                     }))
                   }
-                >
-                  {userProjects.map((project) => (
-                    <option key={project.id} value={project.title}>
-                      {project.title}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-sm text-gray-500 py-2">
-                  No projects available
-                </p>
-              )}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                rows={3}
-                value={assignment.description}
-                onChange={(e) =>
-                  setAssignment((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Score
-              </label>
-              <input
-                type="number"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                value={assignment.score}
-                onChange={(e) =>
-                  setAssignment((prev) => ({ ...prev, score: e.target.value }))
-                }
-              />
-            </div>
-
             <div className="flex justify-end space-x-3 pt-4">
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
+                onClick={handleCancel}
                 className="px-5 py-2.5 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={handleAssignSubmit}
-                disabled={!assignment.title}
-                className="px-5 py-2.5 text-sm font-medium rounded-lg bg-[#9A00FF] text-white hover:bg-[#8a00e6] shadow-sm disabled:opacity-70"
+                type="submit"
+                className="px-5 py-2.5 text-sm font-medium rounded-lg bg-[#9A00FF] text-white hover:bg-[#8a00e6] shadow-sm"
               >
-                Assign Task
+                Save Employee
               </button>
             </div>
           </form>
@@ -1106,7 +475,6 @@ const EmployeesDetails = () => {
       ) : (
         <>
           {showForm && renderEmployeeForm()}
-          {showModal && renderAssignTaskModal()}
           {showLogModal && <LogModal />}
 
           {employeeview === 'detailview' ? (
@@ -1154,108 +522,6 @@ const EmployeesDetails = () => {
                   </div>
                 </form> */}
 
-                {/* Step 2: Employee Info Form */}
-                {step === 2 && (
-                  <form
-                    onSubmit={handleSubmitEmployeeInfo}
-                    className="space-y-4"
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {[
-                        'full_name',
-                        'role',
-                        'phone',
-                        'email',
-                        'personal_email',
-                        'location',
-                        'profession',
-                        'per_hour_pay',
-                        'salary',
-                        'slack_id',
-                        'joining_date',
-                      ].map((field) => (
-                        <div key={field}>
-                          <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
-                            {field.replace(/_/g, ' ')}
-                          </label>
-                          {field === 'role' ? (
-                            <select
-                              name="role"
-                              value={formData.role}
-                              onChange={handleInputChange}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                            >
-                              <option value="employee">Employee</option>
-                              <option value="manager">Manager</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                          ) : (
-                            <input
-                              type={field === 'joining_date' ? 'date' : 'text'}
-                              name={field}
-                              value={
-                                field === 'email'
-                                  ? signupData.email
-                                  : formData[field]
-                              }
-                              onChange={handleInputChange}
-                              disabled={field === 'email'}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent disabled:bg-gray-100"
-                            />
-                          )}
-                        </div>
-                      ))}
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Profile Image
-                        </label>
-                        <div className="flex items-center gap-4">
-                          <label className="flex-1 cursor-pointer">
-                            <div className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                              <span className="text-sm text-gray-700">
-                                Choose file
-                              </span>
-                              <input
-                                type="file"
-                                name="profile_image"
-                                onChange={(e) =>
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    profile_image:
-                                      e.target.files && e.target.files[0]
-                                        ? e.target.files[0]
-                                        : null,
-                                  }))
-                                }
-                                className="hidden"
-                              />
-                            </div>
-                          </label>
-                          {formData.profile_image && (
-                            <span className="text-sm text-gray-500 truncate">
-                              {formData.profile_image.name}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex justify-end space-x-3 pt-4">
-                      <button
-                        type="button"
-                        onClick={() => setStep(1)}
-                        className="px-5 py-2.5 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                      >
-                        Back
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-5 py-2.5 text-sm font-medium rounded-lg bg-[#9A00FF] text-white hover:bg-[#8a00e6] transition-colors shadow-sm"
-                      >
-                        Save Employee
-                      </button>
-                    </div>
-                  </form>
-                )}
               </div>
             </div>
           )}
@@ -1569,16 +835,6 @@ const EmployeesDetails = () => {
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              handleAssignClick(entry);
-                                            }}
-                                            className="p-1.5 rounded-lg bg-[#9A00FF]/10 text-[#9A00FF] hover:bg-[#9A00FF]/20 transition-colors"
-                                            title="Assign Task"
-                                          >
-                                            <FiPlusSquare className="w-3 h-3" />
-                                          </button>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
                                               handleDelete(entry.id);
                                             }}
                                             className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
@@ -1638,16 +894,6 @@ const EmployeesDetails = () => {
                                     </div>
                                   </button>
                                   <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAssignClick(entry);
-                                      }}
-                                      className="p-1.5 rounded-lg bg-[#9A00FF]/10 text-[#9A00FF] hover:bg-[#9A00FF]/20 transition-colors"
-                                      title="Assign Task"
-                                    >
-                                      <FiPlusSquare className="w-3.5 h-3.5" />
-                                    </button>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
