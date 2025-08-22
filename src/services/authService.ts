@@ -211,7 +211,7 @@ async signInWithPassword(credentials: LoginCredentials): Promise<{ data: { user:
       };
 
       // Check if this is an organization registration
-      if (userData.organizationName && userData.organizationSlug) {
+      if (userData.organizationName) {
         endpoint = `${this.baseURL}/register-organization`;
         requestData = {
           ...requestData,
