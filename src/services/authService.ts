@@ -222,38 +222,18 @@ async signInWithPassword(credentials: LoginCredentials): Promise<{ data: { user:
       }
 
       const response = await axios.post<any>(endpoint, requestData);
-           
+
       if (response.data.success) {
-       
-        if (endpoint.endsWith('/register')) {
-          return {
-           
-            data: { user: { email: response.data.email, emailVerified: false } } as any,
-            error: null
-          };
-        }
+        // Both registration types require OTP verification and do not return tokens.
+        // The backend returns user information inside a 'data' property.
+        const responseData = response.data.data;
 
-        // Organization registration returns a full session.
-        const { user, tokens } = response.data;
-
-        // Store tokens
-        localStorage.setItem('accessToken', tokens.accessToken);
-        localStorage.setItem('refreshToken', tokens.refreshToken);
-        localStorage.setItem('user', JSON.stringify(user));
-
-        // Create session object to match Supabase structure
-        const session: Session = {
-          user,
-          access_token: tokens.accessToken,
-          refresh_token: tokens.refreshToken,
-          expires_at: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
-        };
-
-        // Trigger auth state change
-        this.triggerAuthStateChange('SIGNED_IN', session);
+        // For personal registration, the response is { email, emailVerified }
+        // For organization registration, the response is { organization, user }
+        const user = responseData.user || { email: responseData.email, emailVerified: responseData.emailVerified };
 
         return {
-          data: { user, session },
+          data: { user } as any, // We don't have a full session, so we cast to any
           error: null
         };
       }
