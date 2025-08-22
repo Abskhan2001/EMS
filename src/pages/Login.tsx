@@ -11,7 +11,6 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const passwordref = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string | null>(null);
   const isFocusedRef = useRef(false);
   const navigate = useNavigate();
 
@@ -59,13 +58,16 @@ const Login: React.FC = () => {
     e.preventDefault();
 
     if (!email || !password) {
-      setError('Please enter both email and password');
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'Please enter both email and password',
+      });
       return;
     }
 
     try {
       setLoading(true);
-      setError(null);
 
       // Login using your custom authService
       const { data: authData, error: signInError } = await authService.signInWithPassword({
@@ -74,32 +76,31 @@ const Login: React.FC = () => {
       });
 
       if (signInError) {
-        // Handle different error types
-        if (signInError.message.includes('Invalid login credentials') || 
-            signInError.message.includes('Invalid User') ||
-            signInError.message.includes('Invalid email or password')) {
-          setError('Invalid email or password. Please try again.');
-        } else if (signInError.message.includes('Account not verified')) {
-          setError('Please verify your email address before logging in.');
-        } else if (signInError.message.includes('Account suspended')) {
-          setError('Your account has been suspended. Please contact support.');
-        } else {
-          setError(signInError.message);
-        }
+        Swal.fire({
+          icon: 'error',
+          title: 'Login Failed',
+          text: signInError.message,
+        });
         return;
       }
 
       if (authData?.user) {
         // Login successful
-        console.log('Login successful:', authData.user);
+       
         
-        localStorage.setItem("organizationId", authData.user.organizationId._id);
+        if (authData.user.organizationId) {
+          localStorage.setItem("organizationId", authData.user.organizationId._id);
+        }
         
 
 
         // Verify user has a role
         if (!authData.user.role) {
-          setError('User role not found. Please contact support.');
+          Swal.fire({
+            icon: 'error',
+            title: 'Login Failed',
+            text: 'User role not found. Please contact support.',
+          });
           return;
         }
 
@@ -114,17 +115,14 @@ const Login: React.FC = () => {
           redirectBasedOnRole(authData.user.role);
         });
 
-      } else {
-        setError('Login failed. Please try again.');
-      }
+      } 
 
     } catch (err) {
-      console.error('Login error:', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'An unexpected error occurred. Please try again.'
-      );
+      Swal.fire({
+        icon: 'error',
+        title: 'Login Failed',
+        text: err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -162,13 +160,6 @@ const Login: React.FC = () => {
               </p>
             </div>
           </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-900/80 border border-red-700 text-red-200 px-4 py-3 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-5">

@@ -17,10 +17,10 @@ const ImageWithText: React.FC<ImageWithTextProps> = ({
   reverse = false,
 }) => {
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-20 bg-gradient-to-b from-white to-gray-50 overflow-x-hidden">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div
-          className={`flex flex-col-reverse md:flex-row ${
+          className={`flex flex-col md:flex-row ${
             reverse ? 'md:flex-row-reverse' : ''
           } items-center gap-12`}
         >

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, User, Eye, EyeOff, Loader2, CheckCircle, Building2, UserCircle, AlertCircle } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -83,10 +84,6 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
   const validatePassword = (password: string): string | undefined => {
     if (!password) return 'Password is required';
     if (password.length < 8) return 'Password must be at least 8 characters long';
-    if (!/(?=.*[a-z])/.test(password)) return 'Password must contain at least one lowercase letter';
-    if (!/(?=.*[A-Z])/.test(password)) return 'Password must contain at least one uppercase letter';
-    if (!/(?=.*\d)/.test(password)) return 'Password must contain at least one number';
-    if (!/(?=.*[@$!%*?&])/.test(password)) return 'Password must contain at least one special character (@$!%*?&)';
     return undefined;
   };
 
@@ -104,12 +101,14 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
   };
 
   const validateOrganizationSlug = (slug: string): string | undefined => {
-    if (!slug.trim()) return 'Organization slug is required';
-    if (slug.length < 3) return 'Organization slug must be at least 3 characters long';
-    if (slug.length > 50) return 'Organization slug must be less than 50 characters';
-    if (!/^[a-z0-9-]+$/.test(slug)) return 'Organization slug can only contain lowercase letters, numbers, and hyphens';
-    if (slug.startsWith('-') || slug.endsWith('-')) return 'Organization slug cannot start or end with a hyphen';
-    if (slug.includes('--')) return 'Organization slug cannot contain consecutive hyphens';
+    // Organization slug is now optional, so only validate if provided
+    if (slug.trim() && slug.length > 0) {
+      if (slug.length < 3) return 'Organization slug must be at least 3 characters long';
+      if (slug.length > 50) return 'Organization slug must be less than 50 characters';
+      if (!/^[a-z0-9-]+$/.test(slug)) return 'Organization slug can only contain lowercase letters, numbers, and hyphens';
+      if (slug.startsWith('-') || slug.endsWith('-')) return 'Organization slug cannot start or end with a hyphen';
+      if (slug.includes('--')) return 'Organization slug cannot contain consecutive hyphens';
+    }
     return undefined;
   };
 
@@ -248,7 +247,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
         fullName: formData.name,
         role: formData.accountType === 'organization' ? 'admin' : 'employee',
         organizationName: formData.accountType === 'organization' ? formData.organizationName : undefined,
-        organizationSlug: formData.accountType === 'organization' ? formData.organizationSlug : undefined,
+        organizationSlug: formData.accountType === 'organization' && formData.organizationSlug ? formData.organizationSlug : undefined,
       };
 
       const { data, error } = await authService.signUp(userData);
@@ -259,14 +258,35 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
 
       if (data) {
         setStatus('success');
-        setShowSuccessAlert(true);
         setError(null);
+        if (data.user && data.user.emailVerified === false) {
+          Swal.fire({
+            title: 'OTP Sent!',
+            text: 'A verification code has been sent to your email.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+          }).then(() => {
+            navigate('/otp-verification', { state: { email: formData.email } });
+          });
+        } else {
+          navigate('/login');
+        }
       }
-
     } catch (error: any) {
-      console.error('Signup error:', error);
-      setError(error.message || 'Failed to create account. Please try again.');
       setStatus('error');
+      if (error.message) {
+        Swal.fire({
+          title: 'Registration Failed',
+          text: error.message,
+          icon: 'error',
+          confirmButtonText: 'ok',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            //navigate('/login');
+          }
+        });
+      } 
     }
   };
 
@@ -475,7 +495,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                       className={`w-full pl-10 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 ${
                         touched.password && validationErrors.password ? 'border-red-500' : 'border-gray-300'
                       }`}
-                      placeholder="Create a strong password"
+                      placeholder="Create a password"
                       required
                     />
                     <button
@@ -488,7 +508,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   {renderInputError('password')}
                   <div className="mt-1 text-xs text-gray-500">
-                    Password must be at least 8 characters with uppercase, lowercase, number, and special character
+                    Password must be at least 8 characters long
                   </div>
                 </div>
 
@@ -554,7 +574,7 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Organization Slug <span className="text-red-500">*</span>
+                          Organization Slug <span className="text-gray-500">(Optional)</span>
                         </label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
@@ -568,14 +588,13 @@ const SignupModal: React.FC<SignupModalProps> = ({ isOpen, onClose }) => {
                             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 ${
                               touched.organizationSlug && validationErrors.organizationSlug ? 'border-red-500' : 'border-gray-300'
                             }`}
-                            placeholder="organization-slug"
+                            placeholder="organization-slug (optional)"
                             pattern="[a-z0-9\-]+"
-                            required={formData.accountType === 'organization'}
                           />
                         </div>
                         {renderInputError('organizationSlug')}
                         <p className="text-xs text-gray-500 mt-1">
-                          This will be your unique organization identifier (lowercase, numbers, and hyphens only)
+                          This will be your unique organization identifier (lowercase, numbers, and hyphens only). Leave blank to auto-generate.
                         </p>
                       </div>
                     </motion.div>

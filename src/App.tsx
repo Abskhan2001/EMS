@@ -338,6 +338,7 @@ import globalStore from './store';
 import TaskBoardAdmin from './components/TaskBoardAdmin';
 import ErrorBoundary from './components/ErrorBoundary';
 import { websocketService } from './services/websocketService';
+import OtpVerificationPage from './pages/OtpVerificationPage';
 
 // Wrapper components for SuperAdmin routing
 const OrganizationsWrapper: React.FC = () => {
@@ -486,7 +487,7 @@ function App() {
       const { error } = await supabase
         .from('users')
         .update({ push_subscription: subscription })
-        .eq('id', user?.id);
+        .eq('id', user?.id || '');
 
       if (!error) console.log('Subscription saved!');
     }
@@ -547,6 +548,7 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/home" element={<LandingPage />} />
+              <Route path="/otp-verification" element={<OtpVerificationPage />} />
 
               {/* Widget Demo Route */}
               <Route path="/widget-demo" element={<WidgetDemo />} />
@@ -621,7 +623,7 @@ function App() {
                   element={<Navigate to="employeAttandanceTable" replace />}
                 />
                 <Route path="projects" element={<ProjectsAdmin />}>
-                  <Route path=":id" element={<TaskBoardAdmin />} />
+                  <Route path=":id" element={<TaskBoardAdmin setSelectedTAB={undefined} selectedTAB={undefined} ProjectId={undefined} devopss={undefined} />} />
                 </Route>
                 <Route path="organization" element={<AdminOrganization />} />
                 <Route
@@ -629,7 +631,7 @@ function App() {
                   element={<EmployeeAttendanceTable />}
                 />
 
-                <Route path="employeeDetails" element={<EmployeesDetails />} />
+                <Route path="employeeDetails" element={<EmployeesDetails employeeid={undefined} employee={undefined} employeeview={undefined} setemployeeview={undefined} />} />
 
                 <Route path="Clients" element={<AdminClient />} />
                 <Route path="OfficeComplaints" />

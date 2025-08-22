@@ -9,7 +9,10 @@ export interface User {
   fullName: string;
   role: string;
   department?: string;
-  organizationId?: string;
+  organizationId?: {
+    _id: string;
+    name: string;
+  };
   status: string;
   emailVerified: boolean;
   workMode?: string;
@@ -28,11 +31,13 @@ export interface Session {
 export interface AuthResponse {
   success: boolean;
   message: string;
-  user: User;
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
-  };
+  data: {
+    user: User;
+    tokens: {
+      accessToken: string;
+      refreshToken: string;
+    };
+  }
 }
 
 export interface LoginCredentials {
@@ -153,12 +158,12 @@ class AuthService {
     return token;
   }
 
-  async signInWithPassword(credentials: LoginCredentials): Promise<{ data: { user: User; session: Session } | null; error: Error | null }> {
+async signInWithPassword(credentials: LoginCredentials): Promise<{ data: { user: User; session: Session } | null; error: Error | null }> {
     try {
       const response = await axios.post<AuthResponse>(`${this.baseURL}/login`, credentials);
 
       if (response.data.success) {
-        const { user, tokens } = response.data;
+        const { user, tokens } = response.data.data;
 
         // Store tokens
         localStorage.setItem('accessToken', tokens.accessToken);
@@ -180,16 +185,17 @@ class AuthService {
           data: { user, session },
           error: null
         };
-      } else {
-        return {
-          data: null,
-          error: new Error(response.data.message || 'Login failed')
-        };
       }
-    } catch (error: any) {
+      // Handle cases where the server responds with a non-error status code but indicates failure
       return {
         data: null,
-        error: new Error(error.response?.data?.message || 'Login failed')
+        error: new Error(response.data.message || 'Login failed')
+      };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || 'An unknown error occurred';
+      return {
+        data: null,
+        error: new Error(errorMessage)
       };
     }
   }
@@ -197,26 +203,37 @@ class AuthService {
   async signUp(userData: RegisterData): Promise<{ data: { user: User; session: Session } | null; error: Error | null }> {
     try {
       let endpoint = `${this.baseURL}/register`;
-      let requestData = userData;
+      let requestData: any = {
+        email: userData.email,
+        password: userData.password,
+        fullName: userData.fullName,
+        role: userData.role || 'employee',
+      };
 
       // Check if this is an organization registration
       if (userData.organizationName && userData.organizationSlug) {
         endpoint = `${this.baseURL}/register-organization`;
-        
-        // Format data for organization registration
         requestData = {
-          email: userData.email,
-          password: userData.password,
-          fullName: userData.fullName,
+          ...requestData,
           role: userData.role || 'admin', // Default to admin for organization creator
           organizationName: userData.organizationName,
           organizationSlug: userData.organizationSlug,
         };
       }
 
-      const response = await axios.post<AuthResponse>(endpoint, requestData);
-
+      const response = await axios.post<any>(endpoint, requestData);
+           
       if (response.data.success) {
+       
+        if (endpoint.endsWith('/register')) {
+          return {
+           
+            data: { user: { email: response.data.email, emailVerified: false } } as any,
+            error: null
+          };
+        }
+
+        // Organization registration returns a full session.
         const { user, tokens } = response.data;
 
         // Store tokens
@@ -239,16 +256,16 @@ class AuthService {
           data: { user, session },
           error: null
         };
-      } else {
-        return {
-          data: null,
-          error: new Error(response.data.message || 'Registration failed')
-        };
       }
-    } catch (error: any) {
       return {
         data: null,
-        error: new Error(error.response?.data?.message || 'Registration failed')
+        error: new Error(response.data.message || 'Sign up failed')
+      };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || 'An unknown error occurred';
+      return {
+        data: null,
+        error: new Error(errorMessage)
       };
     }
   }
@@ -412,6 +429,24 @@ class AuthService {
         }
       }
     };
+  }
+
+  async verifyEmailOTP(email: string, otp: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await axios.post(`${this.baseURL}/verify-otp`, { email, otp });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'OTP verification failed');
+    }
+  }
+
+  async resendEmailOTP(email: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await axios.post(`${this.baseURL}/resend-otp`, { email });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to resend OTP');
+    }
   }
 }
 
