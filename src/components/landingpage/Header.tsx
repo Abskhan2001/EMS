@@ -74,7 +74,7 @@ const Header = () => {
                   className="w-full h-full object-contain"
                 />
               </motion.div>
-              <span className="text-2xl font-bold text-yellow-400">
+              <span className="text-2xl font-bold text-[#fde047]">
                 EstroWork
               </span>
             </div>
@@ -160,7 +160,7 @@ const Header = () => {
                     onClick={() => navigate("/login")}
                   >
                     <motion.div
-                      className="absolute inset-0 bg-yellow-300"
+                      className="absolute inset-0 bg-[#fde047]"
                       initial={{ x: "-100%" }}
                       whileHover={{ x: "100%" }}
                       transition={{ duration: 0.6 }}
