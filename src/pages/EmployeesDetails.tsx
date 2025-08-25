@@ -88,7 +88,6 @@ const EmployeesDetails = () => {
   // Form states
   const [signupData, setSignupData] = useState({
     email: '',
-    password: '',
   });
 
   // Restore needed state variables for TaskBoardAdmin and employee selection
@@ -175,7 +174,15 @@ const EmployeesDetails = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'phone') {
+      const numericValue = value.replace(/[^0-9]/g, '');
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+    } else if (name === 'salary' || name === 'per_hour_pay') {
+      const decimalValue = value.replace(/[^0-9.]/g, '');
+      setFormData((prev) => ({ ...prev, [name]: decimalValue }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -192,10 +199,6 @@ const EmployeesDetails = () => {
     setFormErrors(errors);
   };
 
-  const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setSignupData((prev) => ({ ...prev, [name]: value }));
-  };
 
   const handleSubmitEmployeeInfo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,7 +236,6 @@ const EmployeesDetails = () => {
           employeeData.append(key, formData[key]);
         }
       });
-      employeeData.append('password', signupData.password);
       const organizationId = localStorage.getItem('organizationId');
       if (organizationId) {
         employeeData.append('organization_id', organizationId);
@@ -246,8 +248,9 @@ const EmployeesDetails = () => {
       fetchEmployees();
       Swal.fire({
         icon: 'success',
-        title: 'Success!',
-        text: 'Employee created successfully!',
+        title: 'Employee Created!',
+        text: 'An email has been sent to the employee to set their password.',
+        confirmButtonText: 'OK'
       });
     } catch (err: any) {
       Swal.fire({
@@ -259,7 +262,7 @@ const EmployeesDetails = () => {
       setIsSubmitting(false);
     }
   };
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const resetForm = () => {
     setFormData({
       full_name: '',
@@ -275,7 +278,7 @@ const EmployeesDetails = () => {
       joining_date: new Date().toISOString().split('T')[0],
       profile_image: null,
     });
-    setSignupData({ email: '', password: '' });
+    setSignupData({ email: '' });
     if (formRef.current) formRef.current.reset();
   };
 
@@ -439,19 +442,6 @@ const EmployeesDetails = () => {
                 />
                 {formErrors.email && <p className="text-red-500 text-xs">{formErrors.email}</p>}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="Password"
-                  value={signupData.password}
-                  onChange={handleSignupChange}
-                  onBlur={handleBlur}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                />
-                {formErrors.password && <p className="text-red-500 text-xs">{formErrors.password}</p>}
-              </div>
               {Object.entries(formData).map(
                 ([field, value]) =>
                   field !== 'profile_image' &&
@@ -475,7 +465,13 @@ const EmployeesDetails = () => {
                         </select>
                       ) : (
                         <input
-                          type={field === 'joining_date' ? 'date' : 'text'}
+                          type={
+                            field === 'joining_date'
+                              ? 'date'
+                              : field === 'phone'
+                              ? 'tel'
+                              : 'text'
+                          }
                           name={field}
                           value={value as string}
                           onChange={handleInputChange}
