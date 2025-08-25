@@ -1569,7 +1569,7 @@ const Attendance: React.FC = () => {
         onClose={() => setIsTaskModalOpen(false)}
         onApply={handleApplyTasks}
         onSkip={handleSkipTasks}
-        userId={localStorage.getItem('user_id') || ''} // Pass the current user's ID from localStorage
+        userId={userProfile?.id || localStorage.getItem('user_id') || ''} // Use userProfile.id first, then localStorage as fallback
       />
 
       {/* Checkout Daily Update Modal */}

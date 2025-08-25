@@ -207,21 +207,46 @@ function TaskBoard({
   const handleQuickAddTask = async (title: string) => {
     try {
       const currentUserId = localStorage.getItem('user_id');
+      console.log('Quick add task - userId:', currentUserId);
+
+      if (!currentUserId) {
+        console.error('No user ID found in localStorage');
+        alert('User session not found. Please refresh the page and try again.');
+        return;
+      }
+
       const { data: currentUserData, error: userError } = await supabase
         .from('users')
-        .select('id, full_name')
+        .select('id, full_name, name, email')
         .eq('id', currentUserId)
         .single();
 
-      const assignedDevs =
-        currentUserData && !userError
-          ? [
-              {
-                id: currentUserId!,
-                name: currentUserData.full_name || 'Unknown',
-              },
-            ]
-          : [];
+      console.log('Quick add task - user data:', currentUserData, 'error:', userError);
+
+      let assignedDevs = [];
+      if (currentUserData && !userError) {
+        const userName = currentUserData.full_name || currentUserData.name || currentUserData.email?.split('@')[0] || 'Unknown User';
+        assignedDevs = [
+          {
+            id: currentUserId,
+            name: userName,
+          },
+        ];
+      } else {
+        console.error('Failed to fetch user data, using fallback');
+        // Fallback: try to get user info from auth store
+        const authUser = useAuthStore.getState().user;
+        const fallbackName = authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'Unknown User';
+        assignedDevs = [
+          {
+            id: currentUserId,
+            name: fallbackName,
+          },
+        ];
+      }
+
+      console.log('Quick add task - assigned devs:', assignedDevs);
+
       const newTask = {
         title: title,
         project_id: id || projectIdd[0],
@@ -232,6 +257,8 @@ function TaskBoard({
         description: '',
         created_at: new Date().toISOString(),
       };
+
+      console.log('Quick add task - new task data:', newTask);
 
       const { data, error } = await supabase
         .from('tasks_of_projects')
@@ -824,15 +851,26 @@ function TaskBoard({
           // If no developers selected, assign to self - fetch from database
           const { data: currentUserData, error: userError } = await supabase
             .from('users')
-            .select('id, full_name')
+            .select('id, full_name, name, email')
             .eq('id', currentUserId)
             .single();
 
           if (currentUserData && !userError) {
+            const userName = currentUserData.full_name || currentUserData.name || currentUserData.email?.split('@')[0] || 'Unknown User';
             assignedDevs = [
               {
                 id: currentUserId!,
-                name: currentUserData.full_name || 'Unknown',
+                name: userName,
+              } as Developer,
+            ];
+          } else {
+            // Fallback to auth store data
+            const authUser = useAuthStore.getState().user;
+            const fallbackName = authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'Unknown User';
+            assignedDevs = [
+              {
+                id: currentUserId!,
+                name: fallbackName,
               } as Developer,
             ];
           }
@@ -841,15 +879,26 @@ function TaskBoard({
         // Regular employees can only assign tasks to themselves - fetch from database
         const { data: currentUserData, error: userError } = await supabase
           .from('users')
-          .select('id, full_name')
+          .select('id, full_name, name, email')
           .eq('id', currentUserId)
           .single();
 
         if (currentUserData && !userError) {
+          const userName = currentUserData.full_name || currentUserData.name || currentUserData.email?.split('@')[0] || 'Unknown User';
           assignedDevs = [
             {
               id: currentUserId!,
-              name: currentUserData.full_name || 'Unknown',
+              name: userName,
+            } as Developer,
+          ];
+        } else {
+          // Fallback to auth store data
+          const authUser = useAuthStore.getState().user;
+          const fallbackName = authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'Unknown User';
+          assignedDevs = [
+            {
+              id: currentUserId!,
+              name: fallbackName,
             } as Developer,
           ];
         }

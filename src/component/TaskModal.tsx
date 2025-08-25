@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronDown, Check, Plus, Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../lib/store';
 
 // AI Task Analysis Interface
 interface AITaskAnalysis {
@@ -971,37 +972,73 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
   };
 
   const handleCreateTask = async () => {
-    if (!selectedProject || !newTaskTitle.trim() || !userId) return;
+    if (!selectedProject || !newTaskTitle.trim() || !userId) {
+      console.error('Missing required data for task creation:', {
+        selectedProject: !!selectedProject,
+        newTaskTitle: newTaskTitle.trim(),
+        userId,
+        userIdFromLocalStorage: localStorage.getItem('user_id')
+      });
+      alert('Missing required information. Please ensure you are logged in and have selected a project.');
+      return;
+    }
 
     setIsCreatingTask(true);
     try {
+      console.log('Creating task with userId:', userId);
+
       // First, get the user's name from the users table
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('full_name, name')
+        .select('id, full_name, name, email')
         .eq('id', userId)
         .single();
 
       if (userError) {
         console.error('Error fetching user data:', userError);
+        console.error('User ID being searched:', userId);
       }
 
-      const userName = userData?.full_name || userData?.name || 'Unknown User';
+      console.log('Fetched user data:', userData);
+
+      // Improved user name resolution with better fallback
+      let userName = 'Unknown User';
+      if (userData) {
+        userName = userData.full_name || userData.name || userData.email?.split('@')[0] || 'Unknown User';
+      } else {
+        // If user data fetch failed, try to get from auth store or localStorage
+        const authUser = useAuthStore.getState().user;
+        if (authUser) {
+          userName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Unknown User';
+        }
+      }
+
+      console.log('Final userName for task:', userName);
+
+      const taskData = {
+        title: newTaskTitle.trim(),
+        description: newTaskDescription.trim() || null,
+        status: 'todo',
+        project_id: selectedProject.id,
+        devops: [{ id: userId, name: userName }],
+        score: newTaskScore ? parseInt(newTaskScore) : 0,
+        created_at: new Date().toISOString()
+      };
+
+      console.log('Inserting task data:', taskData);
 
       const { data, error } = await supabase
         .from('tasks_of_projects')
-        .insert({
-          title: newTaskTitle.trim(),
-          description: newTaskDescription.trim() || null,
-          status: 'todo',
-          project_id: selectedProject.id,
-          devops: [{ id: userId, name: userName }],
-          score: newTaskScore ? parseInt(newTaskScore) : 0
-        })
+        .insert(taskData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error inserting task:', error);
+        throw error;
+      }
+
+      console.log('Task created successfully:', data);
 
       // Add the new task to the list and select it
       setProjectTasks(prev => [...prev, data]);
@@ -1014,6 +1051,8 @@ Remember: If the task is "Fix login bug", your subtasks should be about debuggin
       setShowCreateTask(false);
     } catch (error) {
       console.error('Error creating task:', error);
+      // Show user-friendly error message
+      alert('Failed to create task. Please try again.');
     } finally {
       setIsCreatingTask(false);
     }

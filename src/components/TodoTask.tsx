@@ -14,17 +14,52 @@ const TodoTask = ({
   const [input, setInput] = useState('');
   const handleQuickAddTask = async (title: string) => {
     try {
-      // Create new task with default values
+      const currentUserId = localStorage.getItem('user_id');
+      console.log('TodoTask - userId:', currentUserId);
+
+      let assignedDevs = [];
+      if (currentUserId) {
+        // Try to get user data for proper name assignment
+        const { data: currentUserData, error: userError } = await supabase
+          .from('users')
+          .select('id, full_name, name, email')
+          .eq('id', currentUserId)
+          .single();
+
+        if (currentUserData && !userError) {
+          const userName = currentUserData.full_name || currentUserData.name || currentUserData.email?.split('@')[0] || 'Unknown User';
+          assignedDevs = [
+            {
+              id: currentUserId,
+              name: userName,
+            },
+          ];
+        } else {
+          // Fallback: assign with unknown name but valid ID
+          assignedDevs = [
+            {
+              id: currentUserId,
+              name: 'Unknown User',
+            },
+          ];
+        }
+      }
+
+      console.log('TodoTask - assigned devs:', assignedDevs);
+
+      // Create new task with current user assigned
       const newTask = {
         title: title,
         project_id: projectId,
         status: 'todo',
         score: 0,
         priority: 'Low',
-        devops: [], // Empty by default, user can assign later
+        devops: assignedDevs, // Assign to current user instead of empty
         description: '',
         created_at: new Date().toISOString(),
       };
+
+      console.log('TodoTask - new task:', newTask);
 
       // Save to database
       const { data, error } = await supabase

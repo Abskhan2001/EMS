@@ -74,7 +74,7 @@ const Header = () => {
                   className="w-full h-full object-contain"
                 />
               </motion.div>
-              <span className="text-2xl font-bold text-[#fde047]">
+              <span className="text-2xl font-bold text-[#f6d93b]">
                 EstroWork
               </span>
             </div>

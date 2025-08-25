@@ -12,21 +12,44 @@ const EmployeTodoInput = ({ projectId, fetchTasks }: EmployeeTodoProps) => {
   const handleQuickAddTask = async (title: string) => {
     try {
       const currentUserId = localStorage.getItem('user_id');
+      console.log('EmployeTodoInput - userId:', currentUserId);
+
+      if (!currentUserId) {
+        console.error('No user ID found in localStorage');
+        alert('User session not found. Please refresh the page and try again.');
+        return;
+      }
+
       const { data: currentUserData, error: userError } = await supabase
         .from('users')
-        .select('id, full_name')
+        .select('id, full_name, name, email')
         .eq('id', currentUserId)
         .single();
 
-      const assignedDevs =
-        currentUserData && !userError
-          ? [
-              {
-                id: currentUserId!,
-                name: currentUserData.full_name || 'Unknown',
-              },
-            ]
-          : [];
+      console.log('EmployeTodoInput - user data:', currentUserData, 'error:', userError);
+
+      let assignedDevs = [];
+      if (currentUserData && !userError) {
+        const userName = currentUserData.full_name || currentUserData.name || currentUserData.email?.split('@')[0] || 'Unknown User';
+        assignedDevs = [
+          {
+            id: currentUserId,
+            name: userName,
+          },
+        ];
+      } else {
+        console.error('Failed to fetch user data, using fallback');
+        // Fallback: use a default name but ensure user ID is still set
+        assignedDevs = [
+          {
+            id: currentUserId,
+            name: 'Unknown User',
+          },
+        ];
+      }
+
+      console.log('EmployeTodoInput - assigned devs:', assignedDevs);
+
       const newTask = {
         title,
         project_id: projectId,
@@ -37,7 +60,8 @@ const EmployeTodoInput = ({ projectId, fetchTasks }: EmployeeTodoProps) => {
         description: '',
         created_at: new Date().toISOString(),
       };
-      console.log(newTask);
+      console.log('EmployeTodoInput - new task:', newTask);
+
       const { data, error } = await supabase
         .from('tasks_of_projects')
         .insert([newTask])
