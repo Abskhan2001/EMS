@@ -39,8 +39,11 @@ export const getEmployeesByOrganization = async (organizationId: string) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    // Ensure the response is always an array
-    return Array.isArray(response.data) ? response.data : [];
+    // The API returns an object with an "employees" property
+    if (response.data && Array.isArray(response.data.employees)) {
+      return response.data.employees;
+    }
+    return [];
   } catch (error) {
     console.error('Failed to fetch employees:', error);
     return []; // Return an empty array on error
