@@ -19,17 +19,16 @@ import { useUser } from '../contexts/UserContext';
 import { useNavigate, useParams } from 'react-router-dom';
 
 interface Employee {
-  id: string;
-  full_name: string;
+  _id: string;
+  fullName: string;
   email: string;
-  phone?: string;
-  joining_date?: string;
+  phoneNumber?: string;
+  hireDate?: string;
   projects?: any[];
   TotalKPI?: number;
   role?: string;
-  // Add other employee properties as needed
-  rating?: number; // Employee rating (nullable)
-  daily_log?: string | null; // Add daily log property
+  rating?: number;
+  daily_log?: string | null;
 }
 
 interface Project {
@@ -667,6 +666,12 @@ const EmployeesDetails = () => {
                                 </th>
                                 <th
                                   scope="col"
+                                  className="px-3 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                  Phone
+                                </th>
+                                <th
+                                  scope="col"
                                   className="px-4 lg:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                 >
                                   Projects
@@ -776,7 +781,7 @@ const EmployeesDetails = () => {
                               {employees
                                 .filter(
                                   (entry) =>
-                                    entry.full_name
+                                    entry.fullName
                                       ?.toLowerCase()
                                       .includes(searchQuery.toLowerCase()) ||
                                     entry.email
@@ -786,22 +791,22 @@ const EmployeesDetails = () => {
                                 .map((entry) => {
                                   return (
                                     <tr
-                                      key={entry.id}
+                                      key={entry._id}
                                       className="hover:bg-gray-50 transition-colors cursor-pointer"
                                       onClick={() => {
                                         setEmployee(entry);
-                                        setEmployeeId(entry.id);
+                                        setEmployeeId(entry._id);
                                         setEmployeeView('detailview');
                                       }}
                                     >
                                       <td className="px-4 lg:px-2 py-4 whitespace-nowrap">
                                         <div className="flex items-center gap-3">
                                           <div className="h-9 w-9 rounded-full bg-gradient-to-r from-[#9A00FF] to-[#5A00B4] flex items-center justify-center text-white font-medium text-xs">
-                                            {entry.full_name?.charAt(0) || '?'}
+                                            {entry.fullName?.charAt(0) || '?'}
                                           </div>
                                           <div>
                                             <div className="font-semibold text-gray-800 text-sm">
-                                              {entry.full_name || 'N/A'}
+                                              {entry.fullName || 'N/A'}
                                             </div>
                                             <div className="text-xs text-gray-500">
                                               {entry.email || 'N/A'}
@@ -810,12 +815,14 @@ const EmployeesDetails = () => {
                                         </div>
                                       </td>
                                       <td className="px-3 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                                        {entry.joining_date &&
-                                        entry.joining_date !== 'NA'
+                                        {entry.hireDate
                                           ? new Date(
-                                              entry.joining_date
+                                              entry.hireDate
                                             ).toLocaleDateString()
                                           : 'N/A'}
+                                      </td>
+                                      <td className="px-3 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {entry.phoneNumber || 'N/A'}
                                       </td>
                                       <td className="px-4 lg:px-4 py-4 whitespace-nowrap text-sm text-gray-700">
                                         {entry.projects &&

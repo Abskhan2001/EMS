@@ -20,7 +20,7 @@ export const addEmployee = async (employeeData: FormData) => {
 
 export const setPassword = async (password: string, token: string | undefined) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/admin/employe/set-password`, {
+    const response = await axios.post(`${API_BASE_URL}/admin/employee/set-password`, {
       token,
       password,
     });
@@ -39,8 +39,11 @@ export const getEmployeesByOrganization = async (organizationId: string) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    // Ensure the response is always an array
-    return Array.isArray(response.data) ? response.data : [];
+    // The API returns an object with an "employees" property
+    if (response.data && Array.isArray(response.data.employees)) {
+      return response.data.employees;
+    }
+    return [];
   } catch (error) {
     console.error('Failed to fetch employees:', error);
     return []; // Return an empty array on error
