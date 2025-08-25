@@ -52,16 +52,38 @@ function Header(
   console.log("authenticated user is", user)
 
   const getuserprofile = async () => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user?.id)
-      .single()
-    if (error) {
-      console.log(error)
-    } else {
-      console.log("user profile is", data)
-      setselecteduser(data)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users/${user?.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.user) {
+          // Transform the data to match expected interface
+          const transformedData = {
+            id: result.user._id || result.user.id,
+            email: result.user.email,
+            full_name: result.user.fullName || result.user.full_name,
+            role: result.user.role,
+            department: result.user.department,
+            profile_image: result.user.profilePicture || result.user.profile_image,
+            personal_email: result.user.personal_email,
+            slack_id: result.user.slack_id,
+            joining_date: result.user.hireDate || result.user.joining_date
+          };
+          console.log("user profile is", transformedData);
+          setselecteduser(transformedData);
+        }
+      } else {
+        console.error('Error fetching user profile:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
     }
   }
 

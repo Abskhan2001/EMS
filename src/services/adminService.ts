@@ -20,7 +20,7 @@ export const addEmployee = async (employeeData: FormData) => {
 
 export const setPassword = async (password: string, token: string | undefined) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/admin/employe/set-password`, {
+    const response = await axios.post(`${API_BASE_URL}/admin/employee/set-password`, {
       token,
       password,
     });
