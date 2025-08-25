@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import Employeeprofile from './Employeeprofile';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
-import { addEmployee, getEmployeesByOrganization } from '../services/adminService';
+import { addEmployee, getEmployeesByOrganization, deleteEmployee } from '../services/adminService';
 import axios from 'axios';
 
 import {
@@ -135,7 +135,7 @@ const EmployeesDetails = () => {
   const handleProfileClick = (employee: Employee, e: React.MouseEvent) => {
     e.stopPropagation();
     setEmployee(employee);
-    setEmployeeId(employee.id);
+    setEmployeeId(employee._id);
     setEmployeeView('detailview');
   };
 
@@ -326,20 +326,35 @@ const EmployeesDetails = () => {
     setShowForm(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this employee?')) return;
-
-    try {
-      const token = JSON.parse(localStorage.getItem('user') || '{}').token;
-      await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/users/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setEmployees((prev) => prev.filter((emp) => emp.id !== id));
-      toast.success('Employee deleted successfully');
-    } catch (err) {
-      console.error('Error deleting employee:', err);
-      toast.error('Failed to delete employee');
-    }
+  const handleDelete = async (employeeId: string) => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await deleteEmployee(employeeId);
+          setEmployees((prev) => prev.filter((emp) => emp._id !== employeeId));
+          Swal.fire(
+            'Deleted!',
+            'The employee has been deleted.',
+            'success'
+          );
+        } catch (err) {
+          console.error('Error deleting employee:', err);
+          Swal.fire(
+            'Failed!',
+            'Failed to delete employee.',
+            'error'
+          );
+        }
+      }
+    });
   };
 
   // Log Modal Component
@@ -793,11 +808,7 @@ const EmployeesDetails = () => {
                                     <tr
                                       key={entry._id}
                                       className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                      onClick={() => {
-                                        setEmployee(entry);
-                                        setEmployeeId(entry._id);
-                                        setEmployeeView('detailview');
-                                      }}
+                                      onClick={(e) => handleProfileClick(entry, e)}
                                     >
                                       <td className="px-4 lg:px-2 py-4 whitespace-nowrap">
                                         <div className="flex items-center gap-3">
@@ -828,12 +839,12 @@ const EmployeesDetails = () => {
                                         {entry.projects &&
                                         entry.projects.length > 0 ? (
                                           <div className="flex flex-wrap gap-1.5 ">
-                                            {(showAllProjects[entry.id]
+                                            {(showAllProjects[entry._id]
                                               ? entry.projects
                                               : entry.projects.slice(0, 2)
                                             ).map((project: any) => (
                                               <button
-                                                key={project.id}
+                                                key={project._id}
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   handleOpenTaskBoard(
@@ -853,14 +864,14 @@ const EmployeesDetails = () => {
                                                   setShowAllProjects(
                                                     (prev) => ({
                                                       ...prev,
-                                                      [entry.id]:
-                                                        !prev[entry.id],
+                                                      [entry._id]:
+                                                        !prev[entry._id],
                                                     })
                                                   );
                                                 }}
                                                 className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                               >
-                                                {showAllProjects[entry.id]
+                                                {showAllProjects[entry._id]
                                                   ? 'Show Less'
                                                   : `+${
                                                       entry.projects.length - 2
@@ -907,7 +918,7 @@ const EmployeesDetails = () => {
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              handleDelete(entry.id);
+                                              handleDelete(entry._id);
                                             }}
                                             className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
                                             title="Delete"
@@ -930,7 +941,7 @@ const EmployeesDetails = () => {
                       {employees
                         .filter(
                           (entry) =>
-                            entry.full_name
+                            entry.fullName
                               ?.toLowerCase()
                               .includes(searchQuery.toLowerCase()) ||
                             entry.email
@@ -940,25 +951,21 @@ const EmployeesDetails = () => {
                         .map((entry) => {
                           return (
                             <div
-                              key={entry.id}
+                              key={entry._id}
                               className="bg-white rounded-lg shadow-sm mb-4 overflow-hidden border border-gray-200"
                             >
                               <div className="p-4">
                                 <div className="flex items-center justify-between mb-3">
                                   <button
-                                    onClick={() => {
-                                      setEmployee(entry);
-                                      setEmployeeId(entry.id);
-                                      setEmployeeView('detailview');
-                                    }}
+                                    onClick={(e) => handleProfileClick(entry, e)}
                                     className="flex items-center gap-3 group"
                                   >
                                     <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-r from-[#9A00FF] to-[#5A00B4] flex items-center justify-center text-white font-medium text-xs">
-                                      {entry.full_name?.charAt(0) || '?'}
+                                      {entry.fullName?.charAt(0) || '?'}
                                     </div>
                                     <div className="text-left">
                                       <div className="font-semibold text-gray-800 text-sm">
-                                        {entry.full_name || 'N/A'}
+                                        {entry.fullName || 'N/A'}
                                       </div>
                                       <div className="text-xs text-gray-500">
                                         {entry.email || 'N/A'}
@@ -969,7 +976,7 @@ const EmployeesDetails = () => {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDelete(entry.id);
+                                        handleDelete(entry._id);
                                       }}
                                       className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
                                       title="Delete"
@@ -984,10 +991,9 @@ const EmployeesDetails = () => {
                                       Joined
                                     </p>
                                     <p className="text-gray-700 truncate font-semibold max-w-[120px] ">
-                                      {entry.joining_date &&
-                                      entry.joining_date !== 'NA'
+                                      {entry.hireDate
                                         ? new Date(
-                                            entry.joining_date
+                                            entry.hireDate
                                           ).toLocaleDateString()
                                         : 'N/A'}
                                     </p>
@@ -999,12 +1005,12 @@ const EmployeesDetails = () => {
                                     {entry.projects &&
                                     entry.projects.length > 0 ? (
                                       <div className="flex flex-wrap gap-1.5 mt-1">
-                                        {(showAllProjects[entry.id]
+                                        {(showAllProjects[entry._id]
                                           ? entry.projects
                                           : entry.projects.slice(0, 2)
                                         ).map((project: any) => (
                                           <button
-                                            key={project.id}
+                                            key={project._id}
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               handleOpenTaskBoard(
@@ -1023,12 +1029,12 @@ const EmployeesDetails = () => {
                                               e.stopPropagation();
                                               setShowAllProjects((prev) => ({
                                                 ...prev,
-                                                [entry.id]: !prev[entry.id],
+                                                [entry._id]: !prev[entry._id],
                                               }));
                                             }}
                                             className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                           >
-                                            {showAllProjects[entry.id]
+                                            {showAllProjects[entry._id]
                                               ? 'Show Less'
                                               : `+${entry.projects.length - 2}`}
                                           </button>

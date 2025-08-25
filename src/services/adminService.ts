@@ -49,3 +49,18 @@ export const getEmployeesByOrganization = async (organizationId: string) => {
     return []; // Return an empty array on error
   }
 };
+
+export const deleteEmployee = async (employeeId: string) => {
+  const token = getToken();
+  try {
+    const response = await axios.delete(`${API_BASE_URL}/admin/employees/${employeeId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to delete employee:', error);
+    throw error;
+  }
+};
