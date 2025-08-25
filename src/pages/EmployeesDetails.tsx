@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import Employeeprofile from './Employeeprofile';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
-import { addEmployee } from '../services/adminService';
+import { addEmployee, getEmployeesByOrganization } from '../services/adminService';
 import axios from 'axios';
 
 import {
@@ -150,11 +150,13 @@ const EmployeesDetails = () => {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const token = JSON.parse(localStorage.getItem('user') || '{}').token;
-      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/users/organization/${userProfile?.organization_id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setEmployees(response.data.users);
+      const organizationId = localStorage.getItem('organizationId');
+      if (organizationId) {
+        const employeesData = await getEmployeesByOrganization(organizationId);
+        setEmployees(employeesData);
+      } else {
+        toast.error('Organization ID not found.');
+      }
     } catch (error) {
       console.error('Error fetching employees:', error);
       toast.error('Failed to fetch employees');
@@ -164,10 +166,8 @@ const EmployeesDetails = () => {
   };
 
   useEffect(() => {
-    if (userProfile?.organization_id) {
-      fetchEmployees();
-    }
-  }, [userProfile, performancePeriod]); // <-- Add performancePeriod as dependency
+    fetchEmployees();
+  }, []);
 
   // Employee form handlers
   const handleInputChange = (

@@ -30,3 +30,19 @@ export const setPassword = async (password: string, token: string | undefined) =
     throw error;
   }
 };
+
+export const getEmployeesByOrganization = async (organizationId: string) => {
+  const token = getToken();
+  try {
+    const response = await axios.get(`${API_BASE_URL}/admin/employees/org/${organizationId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    // Ensure the response is always an array
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('Failed to fetch employees:', error);
+    return []; // Return an empty array on error
+  }
+};
