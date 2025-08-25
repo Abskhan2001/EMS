@@ -113,7 +113,12 @@ class QueryBuilder<T> {
 
       this.filters.forEach(filter => {
         const [key, value] = filter.split('=');
-        params.append(key, value);
+        // Convert 'id' to MongoDB query format
+        if (key === 'id') {
+          params.append('id', value);
+        } else {
+          params.append(key, value);
+        }
       });
 
       if (this.orderBy.length > 0) {
@@ -125,7 +130,9 @@ class QueryBuilder<T> {
       }
 
       if (this.offsetValue) {
-        params.append('offset', this.offsetValue.toString());
+        // MongoDB uses 'page' instead of 'offset'
+        const page = Math.floor(this.offsetValue / (this.limitValue || 10)) + 1;
+        params.append('page', page.toString());
       }
 
       const url = `${API_BASE_URL}${this.endpoint}?${params.toString()}`;
@@ -133,10 +140,18 @@ class QueryBuilder<T> {
       const response = await axios.get(url, { headers });
 
       if (response.data.success) {
+        // Handle MongoDB response format
+        let data = response.data.users || response.data.data || response.data.items || [];
+
+        // Ensure data is an array
+        if (!Array.isArray(data)) {
+          data = [data];
+        }
+
         return {
-          data: response.data.data || response.data.items || [],
+          data,
           error: null,
-          count: response.data.total || response.data.count
+          count: response.data.pagination?.totalUsers || response.data.total || response.data.count || data.length
         };
       } else {
         return {
