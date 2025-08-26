@@ -3,7 +3,9 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 const getToken = () => {
-  return localStorage.getItem('accessToken') || '';
+  const token = localStorage.getItem('accessToken') || '';
+  console.log('Getting token from localStorage:', token ? 'Token found' : 'No token found');
+  return token;
 };
 
 export const addEmployee = async (employeeData: FormData) => {
@@ -33,18 +35,20 @@ export const setPassword = async (password: string, token: string | undefined) =
 
 export const getEmployeesByOrganization = async (organizationId: string) => {
   const token = getToken();
+
   try {
     const response = await axios.get(`${API_BASE_URL}/admin/employees/org/${organizationId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+
     // The API returns an object with an "employees" property
     if (response.data && Array.isArray(response.data.employees)) {
       return response.data.employees;
     }
     return [];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch employees:', error);
     return []; // Return an empty array on error
   }
@@ -64,3 +68,6 @@ export const deleteEmployee = async (employeeId: string) => {
     throw error;
   }
 };
+
+
+

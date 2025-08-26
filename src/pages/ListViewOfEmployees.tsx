@@ -2,6 +2,8 @@ import React, { useContext, useEffect, useState, Fragment } from 'react';
 import { supabase } from '../lib/supabase';
 import EmployeeMonthlyAttendanceTable from './ListViewMonthly';
 import { useAuthStore } from '../lib/store';
+import { clearAuth } from '../slices/authSlice';
+import { sessionManager } from '../lib/sessionManager';
 import EmployeeWeeklyAttendanceTable from './ListViewWeekly';
 import PersonAttendanceDetail from './PersonAttendanceDetail';
 import { ChevronLeft, ChevronRight, SearchIcon } from 'lucide-react'; // Assuming you're using Lucide icons
@@ -1205,10 +1207,24 @@ const EmployeeAttendanceTable = () => {
   );
 
   const handleSignOut = async () => {
-    setUser(null);
-    await supabase.auth.signOut();
-    localStorage.clear();
-    navigate('/home');
+    try {
+      // Use SessionManager for proper logout
+      await sessionManager.signOut();
+
+      // Clear both Zustand and Redux auth state
+      setUser(null);
+      dispatch(clearAuth());
+
+      // Navigate to home page
+      navigate('/home');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback: clear local state even if remote logout fails
+      setUser(null);
+      dispatch(clearAuth());
+      localStorage.clear();
+      navigate('/home');
+    }
   };
 
   const calculateDuration = (start: string, end: string | null) => {

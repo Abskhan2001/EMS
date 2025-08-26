@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { Clock, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useAppDispatch } from '../hooks/redux.CustomHooks';
+import { setUser } from '../slices/authSlice';
 
 
 const Login: React.FC = () => {
@@ -13,6 +15,7 @@ const Login: React.FC = () => {
   const passwordref = useRef<HTMLInputElement>(null);
   const isFocusedRef = useRef(false);
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   // Check if user is already logged in
   useEffect(() => {
@@ -85,14 +88,12 @@ const Login: React.FC = () => {
       }
 
       if (authData?.user) {
-        // Login successful
-       
-        
+        // Login successful - update Redux state
+        dispatch(setUser(authData.user));
+
         if (authData.user.organizationId) {
           localStorage.setItem("organizationId", authData.user.organizationId._id);
         }
-        
-
 
         // Verify user has a role
         if (!authData.user.role) {
@@ -104,8 +105,7 @@ const Login: React.FC = () => {
           return;
         }
 
-        
-       Swal.fire({
+        Swal.fire({
           icon: 'success',
           title: 'Login Successful!',
           text: `Welcome back, ${authData.user.email}`,
@@ -115,7 +115,7 @@ const Login: React.FC = () => {
           redirectBasedOnRole(authData.user.role);
         });
 
-      } 
+      }
 
     } catch (err) {
       Swal.fire({

@@ -4,6 +4,15 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { addEmployee, getEmployeesByOrganization, deleteEmployee } from '../services/adminService';
 import axios from 'axios';
+import { useAppSelector, useAppDispatch } from '../hooks/redux.CustomHooks';
+import {
+  fetchEmployees,
+  setCurrentEmployee,
+  setEmployeeView,
+  removeEmployee,
+  addEmployee as addEmployeeAction,
+  type Employee as ReduxEmployee
+} from '../slices/employeeSlice';
 
 import {
   FiPlus,
@@ -38,16 +47,24 @@ interface Project {
 }
 
 const EmployeesDetails = () => {
+  // Redux state management
+  const dispatch = useAppDispatch();
+  const {
+    employees,
+    currentEmployee,
+    loading,
+    error,
+    employeeView
+  } = useAppSelector((state) => state.employee);
 
-  // State management
-  const [employees, setEmployees] = useState<Employee[]>([]);
+
+
+  // Get auth user from Redux
+  const authUser = useAppSelector((state) => state.auth.user);
+
+  // Local state for UI components
   const { userProfile } = useUser();
-  const [loading, setLoading] = useState<boolean>(true);
-  const [employeeview, setEmployeeView] = useState<
-    'generalview' | 'detailview'
-  >('generalview');
   const [employeeId, setEmployeeId] = useState<string>('');
-  const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [userProjects, setUserProjects] = useState<Project[]>([]);
@@ -92,7 +109,6 @@ const EmployeesDetails = () => {
   // Restore needed state variables for TaskBoardAdmin and employee selection
   const [devopss, setDevopss] = useState<any[]>([]);
   const [ProjectId, setProjectId] = useState<string>('');
-  const [employee, setEmployee] = useState<Employee | null>(null);
 
   // Ensure formData uses the FormDataType with index signature
   type FormDataType = {
@@ -134,9 +150,9 @@ const EmployeesDetails = () => {
   // Function to handle profile navigation
   const handleProfileClick = (employee: Employee, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEmployee(employee);
+    dispatch(setCurrentEmployee(employee));
     setEmployeeId(employee._id);
-    setEmployeeView('detailview');
+    dispatch(setEmployeeView('detailview'));
   };
 
   // Function to handle opening check-out message modal
@@ -146,27 +162,22 @@ const EmployeesDetails = () => {
     setShowLogModal(true);
   };
 
-  const fetchEmployees = async () => {
-    setLoading(true);
+  const handleFetchEmployees = async () => {
     try {
-      const organizationId = localStorage.getItem('organizationId');
-      if (organizationId) {
-        const employeesData = await getEmployeesByOrganization(organizationId);
-        setEmployees(employeesData);
-      } else {
-        toast.error('Organization ID not found.');
-      }
+      await dispatch(fetchEmployees()).unwrap();
     } catch (error) {
       console.error('Error fetching employees:', error);
       toast.error('Failed to fetch employees');
-    } finally {
-      setLoading(false);
     }
   };
 
+
+
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    handleFetchEmployees();
+  }, [dispatch]);
+
+
 
   // Employee form handlers
   const handleInputChange = (
@@ -244,7 +255,7 @@ const EmployeesDetails = () => {
 
       resetForm();
       setShowForm(false);
-      fetchEmployees();
+      handleFetchEmployees();
       Swal.fire({
         icon: 'success',
         title: 'Employee Created!',
@@ -339,7 +350,7 @@ const EmployeesDetails = () => {
       if (result.isConfirmed) {
         try {
           await deleteEmployee(employeeId);
-          setEmployees((prev) => prev.filter((emp) => emp._id !== employeeId));
+          dispatch(removeEmployee(employeeId));
           Swal.fire(
             'Deleted!',
             'The employee has been deleted.',
@@ -539,8 +550,9 @@ const EmployeesDetails = () => {
     </div>
   );
 
+ 
   return (
-    <div className="   min-h-screen bg-gray-50 p-4 sm:p-6 ">
+    <div className="   min-h-screen">
       {selectedTAB === 'TaskBoard' ? (
         <TaskBoardAdmin
           devopss={devopss}
@@ -553,50 +565,17 @@ const EmployeesDetails = () => {
           {showForm && renderEmployeeForm()}
           {showLogModal && <LogModal />}
 
-          {employeeview === 'detailview' ? (
+          {employeeView === 'detailview' ? (
             <Employeeprofile
               employeeid={employeeId}
-              employeeview={employeeview}
+              employeeview={employeeView}
               employee={currentEmployee}
-              setemployeeview={setEmployeeView}
+              setemployeeview={(view: 'generalview' | 'detailview') => dispatch(setEmployeeView(view))}
             />
           ) : (
             <div className="max-w-7xl mx-auto">
               <div className="">
-                {/* <form className="p-6 border-b border-gray-200">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <h1 className="text-2xl font-bold text-gray-800">Team Management</h1>
-                      <p className="text-gray-500 mt-1">View and manage your team members</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                      <input
-                        type="password"
-                        name="password"
-                        value={signupData.password}
-                        onChange={handleSignupChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9A00FF] focus:border-transparent"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end space-x-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="px-5 py-2.5 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 text-sm font-medium rounded-lg bg-[#9A00FF] text-white hover:bg-[#8a00e6] transition-colors shadow-sm"
-                    >
-                      Continue
-                    </button>
-                  </div>
-                </form> */}
+               
 
               </div>
             </div>
@@ -605,8 +584,8 @@ const EmployeesDetails = () => {
           {/* Main Content */}
           <div className="max-w-7xl mx-auto  ">
             {/* General Employee View */}
-            {employeeview === 'generalview' && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {employeeView === 'generalview' && (
+              <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
                 {/* Header Section */}
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -654,14 +633,26 @@ const EmployeesDetails = () => {
                     </div>
                   </div>
                 </div>
-
-           
-
                 {loading ? (
                   <Loader />
+                ) : error ? (
+                  <div className="flex flex-col items-center justify-center min-h-[200px] py-8">
+                    <div className="text-red-500 text-lg font-semibold mb-2">
+                      Error loading employees
+                    </div>
+                    <div className="text-gray-600 mb-4">{error}</div>
+                    <button
+                      onClick={handleFetchEmployees}
+                      className="px-4 py-2 bg-[#9A00FF] text-white rounded-lg hover:bg-[#8000E0] transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </div>
                 ) : (
                   <div className="w-full ">
+                    {(() => { console.log('🔥 ABOUT TO RENDER TABLE SECTION'); return null; })()}
                     <div className="hidden md:block w-full">
+                      {(() => { console.log('🔥 INSIDE TABLE CONTAINER'); return null; })()}
                       <div className="w-full inline-block align-middle">
                         <div className="overflow-x-auto ">
                           <table className="w-full divide-y divide-gray-200 table-auto">
@@ -793,18 +784,49 @@ const EmployeesDetails = () => {
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                              {employees
-                                .filter(
-                                  (entry) =>
-                                    entry.fullName
+                              {(() => {
+
+
+                                // Add null check and default to empty array
+                                const employeesArray = employees || [];
+
+                                if (!Array.isArray(employeesArray)) {
+                                  return [];
+                                }
+
+                                const filteredEmployees = employeesArray
+                                  .filter((entry) => {
+                                    // If no search query, show all
+                                    if (!searchQuery || searchQuery.trim() === '') {
+                                      return true;
+                                    }
+
+                                    const fullNameMatch = entry.fullName
                                       ?.toLowerCase()
-                                      .includes(searchQuery.toLowerCase()) ||
-                                    entry.email
+                                      .includes(searchQuery.toLowerCase());
+                                    const emailMatch = entry.email
                                       ?.toLowerCase()
-                                      .includes(searchQuery.toLowerCase())
-                                )
-                                .map((entry) => {
+                                      .includes(searchQuery.toLowerCase());
+
+                                    return fullNameMatch || emailMatch;
+                                  });
+
+
+
+                                if (filteredEmployees.length === 0) {
                                   return (
+                                    <tr>
+                                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                                        {employeesArray.length === 0 ? 'No employees found' : 'No employees match your search'}
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+
+
+
+                                const result = filteredEmployees.map((entry, index) => {
+                                  const row = (
                                     <tr
                                       key={entry._id}
                                       className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -929,7 +951,13 @@ const EmployeesDetails = () => {
                                       </td>
                                     </tr>
                                   );
-                                })}
+                                  console.log(`🚀 Row ${index} created for:`, entry.fullName);
+                                  return row;
+                                });
+
+                                console.log('🚀 Final result array length:', result.length);
+                                return result;
+                              })()}
                             </tbody>
                           </table>
                         </div>
@@ -938,7 +966,7 @@ const EmployeesDetails = () => {
 
                     {/* Mobile card view - shown only on small screens */}
                     <div className="md:hidden">
-                      {employees
+                      {(employees || [])
                         .filter(
                           (entry) =>
                             entry.fullName

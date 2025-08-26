@@ -6,12 +6,14 @@ import {
   Navigate,
   useParams,
 } from 'react-router-dom';
-import { useAuthStore } from './lib/store';
+import { useAppSelector, useAppDispatch } from './hooks/redux.CustomHooks';
+import { setUser } from './slices/authSlice';
+import { authService } from './services/authService';
 import EmployeeLayout from './components/EmployeeLayout';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import { supabase } from './lib/supabase';
+
 import Dashboard from './pages/Dashboard';
 import { Provider } from 'react-redux';
 import Attendance from './pages/Attendance';
@@ -48,8 +50,9 @@ import Adminroute, {
   UserRoute,
 } from './components/adminroute';
 import { AnimatePresence } from 'framer-motion';
-import { AuthProvider } from './lib/AuthProvider';
+
 import { UserProvider } from './contexts/UserContext';
+import { NotificationProvider } from './lib/NotificationProvider';
 import SuperAdminPage from './pages/SuperAdminPage';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import Organizations from './pages/Organizations';
@@ -70,7 +73,8 @@ import AdminHoliday from './pages/adminHoliday';
 import AdminDailyLogs from './components/AdminDailyLogs';
 import Updates from './pages/Updates';
 import Employeeprofile from './pages/Employeeprofile';
-import globalStore from './store';
+import globalStore, { persistor } from './store';
+import { PersistGate } from 'redux-persist/integration/react';
 import TaskBoardAdmin from './components/TaskBoardAdmin';
 import ErrorBoundary from './components/ErrorBoundary';
 import { websocketService } from './services/websocketService';
@@ -101,14 +105,21 @@ const OrganizationDetailWrapper: React.FC = () => {
 
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', id)
-          .single();
+        const token = await authService.getValidToken();
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/organizations/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-        if (error) throw error;
-        setOrganization(data);
+        if (!response.ok) throw new Error('Failed to fetch organization');
+        const result = await response.json();
+        if (result.success) {
+          setOrganization(result.data);
+        } else {
+          throw new Error(result.message || 'Failed to fetch organization');
+        }
       } catch (err) {
         console.error('Error fetching organization:', err);
         navigate('/superadmin/organizations');
@@ -139,9 +150,26 @@ const OrganizationDetailWrapper: React.FC = () => {
   return <OrganizationDetail organization={organization} onBack={handleBack} />;
 };
 
-function App() {
-  const user = useAuthStore((state) => state.user);
-  const setUser = useAuthStore((state) => state.setUser);
+// Main App Content Component (inside Redux Provider)
+function AppContent() {
+  const user = useAppSelector((state) => state.auth.user);
+  const dispatch = useAppDispatch();
+
+  // Initialize auth state from stored session
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const { data, error } = await authService.getSession();
+        if (data?.session?.user && !error) {
+          dispatch(setUser(data.session.user));
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      }
+    };
+
+    initializeAuth();
+  }, [dispatch]);
 
   // Initialize WebSocket connection when user is authenticated
   useEffect(() => {
@@ -221,23 +249,33 @@ function App() {
           'BFPFkVqWUS4mX-O--KPP3jzy1xyi1pHFREawLt7R9Md2kZpTj8vvbyo9XWE-RIgnsL22pTSpqoX4gOAOsm5flJQ',
       });
 
-      // Save to Supabase
-      const { error } = await supabase
-        .from('users')
-        .update({ push_subscription: subscription })
-        .eq('id', user?.id || '');
+      // Save push subscription to backend
+      try {
+        const token = await authService.getValidToken();
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users/push-subscription`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ push_subscription: subscription })
+        });
 
-      if (!error) console.log('Subscription saved!');
+        if (response.ok) {
+          console.log('Push subscription saved!');
+        } else {
+          console.error('Failed to save push subscription');
+        }
+      } catch (error) {
+        console.error('Error saving push subscription:', error);
+      }
     }
   };
 
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <Provider store={globalStore}>
-          <UserProvider>
-          <Toaster />
-          <Router>
+    <>
+      <Toaster />
+      <Router>
             {/* Chat Sidebar - LinkedIn style */}
             <AnimatePresence>
               {ischatopen && (
@@ -370,7 +408,7 @@ function App() {
                   element={<EmployeeAttendanceTable />}
                 />
 
-                <Route path="employeeDetails" element={<EmployeesDetails employeeid={undefined} employee={undefined} employeeview={undefined} setemployeeview={undefined} />} />
+                <Route path="employeeDetails" element={<EmployeesDetails />} />
 
                 <Route path="Clients" element={<AdminClient />} />
                 <Route path="OfficeComplaints" />
@@ -426,20 +464,35 @@ function App() {
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </Router>
-        </UserProvider>
-      </Provider>
-    </AuthProvider>
-    </ErrorBoundary>
+    </>
   );
 }
 
+// Private Route Component (inside Redux context)
 const PrivateRoute: React.FC<{
   children: React.ReactNode;
   adminOnly?: boolean;
 }> = ({ children, adminOnly }) => {
-  const user = useAuthStore((state) => state.user);
+  const user = useAppSelector((state) => state.auth.user);
   if (!user) return <Navigate to="/home" replace />;
   return <>{children}</>;
 };
+
+// Main App Component (wraps AppContent with Redux Provider)
+function App() {
+  return (
+    <ErrorBoundary>
+      <Provider store={globalStore}>
+        <PersistGate loading={null} persistor={persistor}>
+          <NotificationProvider>
+            <UserProvider>
+              <AppContent />
+            </UserProvider>
+          </NotificationProvider>
+        </PersistGate>
+      </Provider>
+    </ErrorBoundary>
+  );
+}
 
 export default App;

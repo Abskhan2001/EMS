@@ -2,18 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { AuthProvider } from './lib/AuthProvider.tsx';
-import { UserProvider } from './lib/userprovider';
-import { NotificationProvider } from './lib/NotificationProvider';
 
 createRoot(document.getElementById('root')!).render(
-  <AuthProvider>
-    <UserProvider>
-      <NotificationProvider>
-        <App />
-      </NotificationProvider>
-    </UserProvider>
-  </AuthProvider>
+  <StrictMode>
+    <App />
+  </StrictMode>
 );
 // if ("serviceWorker" in navigator) {
 //   navigator.serviceWorker

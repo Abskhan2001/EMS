@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAuthStore } from './store';
+import { useAppSelector } from '../hooks/redux.CustomHooks';
 import { messaging, GenerateToken } from '../../notifications/firebase';
 import { onMessage } from 'firebase/messaging';
 
@@ -19,7 +19,7 @@ interface NotificationProviderProps {
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
-  const user = useAuthStore((state) => state.user);
+  const user = useAppSelector((state) => state.auth.user);
 
   // Check if notifications are already enabled and request permission if user is logged in
   useEffect(() => {
@@ -35,7 +35,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         // Generate token if user is logged in
         if (user) {
           try {
-            await GenerateToken();
+            // Temporarily disabled FCM token generation
+            console.log('FCM token generation temporarily disabled');
+            // await GenerateToken();
             // Set up message listener
             onMessage(messaging, (payload) => {
               console.log('Message received in foreground:', payload);

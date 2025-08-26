@@ -24,6 +24,8 @@ import { toDate } from 'date-fns';
 import Header from './Header';
 import TimeTrackerWidget from './TimeTrackerWidget';
 import Updateview from './updateview';
+import { useAppDispatch } from '../hooks/redux.CustomHooks';
+import { clearAuth } from '../slices/authSlice';
 
 const EmployeeLayout: React.FC = () => {
   const location = useLocation();
@@ -31,6 +33,7 @@ const EmployeeLayout: React.FC = () => {
   const user = useAuthStore((state) => state.user);
   const { userProfile, loading } = useUser();
   const setUser = useAuthStore((state) => state.setUser);
+  const dispatch = useAppDispatch();
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -62,12 +65,18 @@ const EmployeeLayout: React.FC = () => {
     try {
       // Use SessionManager for proper logout
       await sessionManager.signOut();
+
+      // Clear both Zustand and Redux auth state
       setUser(null);
+      dispatch(clearAuth());
+
+      // Navigate to home page
       navigate('/home');
     } catch (error) {
       console.error('Error during logout:', error);
       // Fallback: clear local state even if remote logout fails
       setUser(null);
+      dispatch(clearAuth());
       localStorage.clear();
       navigate('/home');
     }

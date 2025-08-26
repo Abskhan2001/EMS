@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../lib/store';
 import { supabase } from '../lib/supabase';
 import { sessionManager } from '../lib/sessionManager';
+import { useAppDispatch } from '../hooks/redux.CustomHooks';
+import { clearAuth } from '../slices/authSlice';
 import {
   LayoutDashboard,
   Building2,
@@ -22,17 +24,24 @@ const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ activeTab }) => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
+  const dispatch = useAppDispatch();
 
   const handleLogout = async () => {
     try {
       // Use SessionManager for proper logout
       await sessionManager.signOut();
+
+      // Clear both Zustand and Redux auth state
       setUser(null);
+      dispatch(clearAuth());
+
+      // Navigate to home page
       navigate('/home');
     } catch (error) {
       console.error('Error logging out:', error);
       // Fallback: clear local state even if remote logout fails
       setUser(null);
+      dispatch(clearAuth());
       localStorage.clear();
       navigate('/home');
     }

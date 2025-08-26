@@ -3,13 +3,18 @@ import { Menu, X, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import SignupModal from "./SignupModal";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../lib/AuthProvider";
+import { useAppSelector, useAppDispatch } from "../../hooks/redux.CustomHooks";
 import { useUser } from "../../contexts/UserContext";
+import { clearAuth } from "../../slices/authSlice";
+import { sessionManager } from "../../lib/sessionManager";
+import { useAuthStore } from "../../lib/store";
 
 const Header = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { userProfile, } = useUser()
+  const user = useAppSelector((state) => state.auth.user);
+  const { userProfile, } = useUser();
+  const dispatch = useAppDispatch();
+  const setUser = useAuthStore((state) => state.setUser);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
@@ -34,6 +39,27 @@ const Header = () => {
     }
     else {
       navigate('/');
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      // Use SessionManager for proper logout
+      await sessionManager.signOut();
+
+      // Clear both Zustand and Redux auth state
+      setUser(null);
+      dispatch(clearAuth());
+
+      // Navigate to home page (will show sign in/sign up buttons)
+      navigate('/home');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback: clear local state even if remote logout fails
+      setUser(null);
+      dispatch(clearAuth());
+      localStorage.clear();
+      navigate('/home');
     }
   };
 
@@ -132,11 +158,7 @@ const Header = () => {
                   transition={{ duration: 0.5, delay: 0.5 }}
                 >
                   <motion.button
-                    onClick={async () => {
-                      const { supabase } = await import("../../lib/supabase");
-                      await supabase.auth.signOut();
-                      navigate("/");
-                    }}
+                    onClick={handleSignOut}
                     className="relative border-2 border-yellow-400 text-yellow-400 px-6 py-2 rounded-lg font-medium hover:bg-yellow-400 hover:text-blue-900 transition-colors duration-200"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -252,11 +274,7 @@ const Header = () => {
                     transition={{ duration: 0.3, delay: 0.5 }}
                   >
                     <motion.button
-                      onClick={async () => {
-                        const { supabase } = await import("../../lib/supabase");
-                        await supabase.auth.signOut();
-                        navigate("/");
-                      }}
+                      onClick={handleSignOut}
                       className="w-full border-2 border-yellow-400 text-yellow-400 px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 hover:text-blue-900 transition-colors duration-200"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Chatlayout from '../components/chatlayout';
 import Chatbutton from '../components/chatbtn';
+import { useAppSelector, useAppDispatch } from '../hooks/redux.CustomHooks';
+import { clearAuth } from '../slices/authSlice';
+import { sessionManager } from '../lib/sessionManager';
 import { useAuthStore } from '../lib/store';
 import LeaveRequestsAdmin from './LeaveRequestsAdmin';
 import AbsenteeComponentAdmin from './AbsenteeDataAdmin';
@@ -27,7 +30,7 @@ import ProjectsAdmin from '../components/ProjectsAdmin';
 import './style.css';
 import { useRef } from 'react';
 import { ShieldCheck, LogOut, PanelLeftClose } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { authService } from '../services/authService';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   format,
@@ -47,10 +50,9 @@ import { useUser } from '../contexts/UserContext';
 import AdminClient from './adminclient';
 import AdminSoftwareComplaint from './AdminSoftwareComplaint';
 import AdminOrganization from '../components/adminorganization';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { closeSideBar, openSideBar } from '../slices/SideBar';
-import { useAppDispatch } from '../hooks/redux.CustomHooks';
 
 interface AttendanceRecord {
   id: string;
@@ -121,10 +123,9 @@ const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [showEmployeeList, setShowEmployeeList] = useState(false);
-  const user = useAuthStore((state) => state.user);
+  const user = useAppSelector((state) => state.auth.user);
   const [leaveRequests, setleaveRequests] = useState(false);
   const [PendingLeaveRequests, setPendingLeaveRequests] = useState<any[]>([]);
-  const setUser = useAuthStore((state) => state.setUser);
   const [absentees, setabsentees] = useState('');
   const [leaves, setleaves] = useState('');
   const [userID, setUserID] = useState<string>('');
@@ -363,43 +364,61 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     const fetching = async () => {
       try {
-        // Fetch employees from the database
-        const { data: employees, error: employeesError } = await supabase
-          .from('users')
-          .select('id, full_name');
-        //  .not('full_name', 'in', '("Admin")')
-        //  .not('full_name', 'in', '("saud")');
+        // Skip fetching if we don't have user profile yet
+        if (!userProfile?.organization_id) {
+          console.warn('No organization ID found in user profile');
+          return;
+        }
 
-        if (employeesError) throw employeesError;
+        // Use admin service to fetch employees
+        const { getEmployeesByOrganization } = await import('../services/adminService');
+        const employees = await getEmployeesByOrganization(userProfile.organization_id);
+
         if (!employees || employees.length === 0) {
           console.warn('No employees found.');
           return;
         }
 
+        // Transform data to match expected format
+        const transformedEmployees = employees.map((emp: any) => ({
+          id: emp._id || emp.id,
+          full_name: emp.fullName || emp.full_name
+        }));
+
         // Update state with the fetched employees
-        setEmployees(employees);
+        setEmployees(transformedEmployees);
       } catch (error) {
         console.error('Error fetching employees:', error);
       }
     };
 
     fetching(); // Call the async function
-  }, [selectedTab]); // Empty dependency array to run only on mount
+  }, [selectedTab, userProfile?.organization_id]); // Add organization_id as dependency
 
   useEffect(() => {
     if (selectedTab === 'Employees') {
       const fetchEmployees = async () => {
         try {
-          // Fetch all employees except excluded ones
-          const { data: employees, error: employeesError } = await supabase
-            .from('users')
-            .select('id, full_name');
+          // Skip fetching if we don't have user profile yet
+          if (!userProfile?.organization_id) {
+            console.warn('No organization ID found in user profile');
+            return;
+          }
 
-          if (employeesError) throw employeesError;
-          if (!employees || employees.length === 0) {
+          // Use admin service to fetch employees
+          const { getEmployeesByOrganization } = await import('../services/adminService');
+          const employeesData = await getEmployeesByOrganization(userProfile.organization_id);
+
+          if (!employeesData || employeesData.length === 0) {
             console.warn('No employees found.');
             return;
           }
+
+          // Transform data to match expected format
+          const employees = employeesData.map((emp: any) => ({
+            id: emp._id || emp.id,
+            full_name: emp.fullName || emp.full_name
+          }));
 
           setEmployees(employees);
 
@@ -521,11 +540,28 @@ const AdminPage: React.FC = () => {
     }
   }, [userID, selectedTab]);
 
+  const dispatch = useAppDispatch();
+  const setUser = useAuthStore((state) => state.setUser);
+
   const handleSignOut = async () => {
-    setUser(null);
-    await supabase.auth.signOut();
-    localStorage.clear();
-    navigate('/home');
+    try {
+      // Use SessionManager for proper logout
+      await sessionManager.signOut();
+
+      // Clear both Zustand and Redux auth state
+      setUser(null);
+      dispatch(clearAuth());
+
+      // Navigate to home page
+      navigate('/home');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback: clear local state even if remote logout fails
+      setUser(null);
+      dispatch(clearAuth());
+      localStorage.clear();
+      navigate('/home');
+    }
   };
 
   const calculateDuration = (start: string, end: string | null) => {
@@ -688,7 +724,6 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const dispatch = useAppDispatch();
   const isSideBarOpen = useSelector((state: RootState) => state.sideBar.isOpen);
   return (
     <>
