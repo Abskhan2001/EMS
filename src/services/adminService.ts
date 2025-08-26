@@ -10,6 +10,10 @@ const getToken = () => {
 
 export const addEmployee = async (employeeData: FormData) => {
   const token = getToken();
+  const organizationId = localStorage.getItem('organizationId');
+  if (organizationId) {
+    employeeData.append('organization_id', organizationId);
+  }
   const response = await axios.post(`${API_BASE_URL}/admin/employees`, employeeData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -68,6 +72,3 @@ export const deleteEmployee = async (employeeId: string) => {
     throw error;
   }
 };
-
-
-

@@ -246,10 +246,7 @@ const EmployeesDetails = () => {
           employeeData.append(key, formData[key]);
         }
       });
-      const organizationId = localStorage.getItem('organizationId');
-      if (organizationId) {
-        employeeData.append('organization_id', organizationId);
-      }
+      
 
       await addEmployee(employeeData);
 

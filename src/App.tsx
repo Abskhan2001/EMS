@@ -93,6 +93,11 @@ const OrganizationsWrapper: React.FC = () => {
   return <Organizations onSelectOrganization={handleSelectOrganization} />;
 };
 
+const EmployeeprofileWrapper: React.FC = () => {
+  const { Id } = useParams<{ Id: string }>();
+  return <Employeeprofile employeeid={Id} employee={undefined} employeeview={undefined} setemployeeview={undefined} />;
+};
+
 const OrganizationDetailWrapper: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -420,7 +425,7 @@ function AppContent() {
                 <Route path="leaverequest" />
                 <Route path="dailylogs" element={<AdminDailyLogs />} />
                 <Route path="officealerts" element={<Updates />} />
-                <Route path="profile/:Id" element={<Employeeprofile />} />
+<Route path="profile/:Id" element={<EmployeeprofileWrapper />} />
               </Route>
 
               {/* Employee Routes (Protected & Nested under EmployeeLayout) */}
