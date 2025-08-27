@@ -8,12 +8,14 @@ import { AttendenceAPI } from './services/AttendanceAPI';
 import absenteeCountReducer from './slices/userAbsenteesSlice';
 import authReducer from './slices/authSlice';
 import employeeReducer from './slices/employeeSlice';
+import organizationLocationReducer from './slices/organizationLocationSlice';
+import clientsReducer from './slices/clientsSlice';
 
 // Persist configuration
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['auth', 'employee'], // Only persist auth and employee slices
+  whitelist: ['auth', 'employee', 'organizationLocation', 'clients'], // Persist auth, employee, location, and clients slices
 };
 
 // Combine reducers
@@ -23,6 +25,8 @@ const rootReducer = combineReducers({
   absenteeCount: absenteeCountReducer,
   auth: authReducer,
   employee: employeeReducer,
+  organizationLocation: organizationLocationReducer,
+  clients: clientsReducer,
   [AttendenceAPI.reducerPath]: AttendenceAPI.reducer,
 });
 

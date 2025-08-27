@@ -132,3 +132,134 @@ export const updateLocation = async (locationId: string, locationData: {
         throw error;
     }
 };
+
+
+export const addClient = async (clientData: any) => {
+  const token = getToken();
+  const organizationId = localStorage.getItem('organizationId');
+  
+  // Create FormData properly
+  const formData = new FormData();
+  console.log("clientData",clientData);
+  // Add all client data fields
+  Object.keys(clientData).forEach(key => {
+    if (clientData[key] !== null && clientData[key] !== undefined) {
+      formData.append(key, clientData[key]);
+    }
+  });
+  
+  // Add required fields
+  if (organizationId) {
+    formData.append('organization_id', organizationId);
+  }
+  formData.append('role', 'client');
+  
+  // Debug: Log FormData contents
+  console.log('FormData contents:');
+  for (let pair of formData.entries()) {
+    console.log(pair[0] + ': ' + pair[1]);
+  }
+  
+  const response = await axios.post(`${API_BASE_URL}/admin/clients`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  return response.data;
+};
+export const getClientsByOrganization = async (organizationId:any) => {
+  const token = getToken();
+
+  try {
+    const response = await axios.get(`${API_BASE_URL}/admin/clients/org/${organizationId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    // The API should return an object with a "clients" property
+    if (response.data && Array.isArray(response.data.clients)) {
+      return response.data.clients;
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to fetch clients:', error);
+    return []; // Return an empty array on error
+  }
+};
+
+export const getClientById = async (clientId) => {
+  const token = getToken();
+  try {
+    const response = await axios.get(`${API_BASE_URL}/admin/clients/${clientId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data.client;
+  } catch (error) {
+    console.error('Failed to fetch client:', error);
+    throw error;
+  }
+};
+
+export const deleteClient = async (clientId) => {
+  const token = getToken();
+  try {
+    const response = await axios.delete(`${API_BASE_URL}/admin/clients/${clientId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to delete client:', error);
+    throw error;
+  }
+};
+
+export const getProjectById = async (projectId) => {
+  const token = getToken();
+  try {
+    const response = await axios.get(`${API_BASE_URL}/admin/projects/${projectId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data.project;
+  } catch (error) {
+    console.error('Failed to fetch project:', error);
+    throw error;
+  }
+};
+//   const token = getToken();
+//   try {
+//     const response = await axios.get(`${API_BASE_URL}/admin/clients/${clientId}`, {
+//       headers: {
+//         Authorization: `Bearer ${token}`,
+//       },
+//     });
+//     return response.data.client;
+//   } catch (error) {
+//     console.error('Failed to fetch client:', error);
+//     throw error;
+//   }
+// };
+
+// export const deleteClient = async (clientId) => {
+//   const token = getToken();
+//   try {
+//     const response = await axios.delete(`${API_BASE_URL}/admin/clients/${clientId}`, {
+//       headers: {
+//         Authorization: `Bearer ${token}`,
+//       },
+//     });
+//     return response.data;
+//   } catch (error) {
+//     console.error('Failed to delete client:', error);
+//     throw error;
+//   }
+// };
+
