@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from '../lib/supabase';
+import { withRetry } from '../lib/supabase';
 import { startOfMonth, endOfMonth } from "date-fns";
 
 const AbsenteeComponent = ({selectedDate}) => {
@@ -16,27 +16,36 @@ const AbsenteeComponent = ({selectedDate}) => {
     try {
       // Fetch absentee records for today for all users at once
       setloading(true)
-      const { data: absenteeRecords, error: absenteeError } = await supabase
-        .from('absentees')
-        .select('*')
-        .eq('user_id', localStorage.getItem('user_id'))
-        .gte('created_at', monthStart.toISOString())
-        .lte('created_at', monthEnd.toISOString())
 
-        // .gte('created_at', startOfDay)
-        // .lt('created_at', endOfDay);
-        console.log("absenteeRecords" , absenteeRecords);
-        
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/absentees?userId=${localStorage.getItem('user_id')}&startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (absenteeError) throw absenteeError;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        const absenteeRecords = result.data || [];
+        console.log("absenteeRecords", absenteeRecords);
+
+        // Set the fetched absentee records into state
+        setAbsenteeData(absenteeRecords);
+      } else {
+        console.error("Error fetching absentee data:", result.message);
+        setAbsenteeData([]);
+      }
+
       setloading(false)
-
-      // Set the fetched absentee records into state
-      setAbsenteeData(absenteeRecords || []);
     } catch (error) {
       console.error("Error fetching absentee data:", error);
+      setloading(false)
     }
-    setloading(false)
   };
 
   useEffect(() => {

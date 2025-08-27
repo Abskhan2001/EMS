@@ -368,63 +368,63 @@ const GroupChat = ({ groupId, closegroupchat }: { groupId: string, closegroupcha
         }
     }, [messages, groupId]);
 
-    // Real-time subscriptions
+    // Real-time subscriptions (COMMENTED OUT)
     useEffect(() => {
         if (!groupId || !currentUser?.id) return;
 
-        const messagesChannel = supabase
-            .channel(`group-messages-${groupId}`)
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'messages',
-                filter: `group_id=eq.${groupId}`
-            }, async (payload: any) => {
-                if (payload.eventType === 'INSERT' && payload.new.sender_id !== currentUser.id) {
-                    // Fetch the complete message with sender info
-                    try {
-                        const { data: messageData } = await supabase
-                            .from('messages')
-                            .select('*')
-                            .eq('id', payload.new.id)
-                            .single();
+        // const messagesChannel = supabase
+        //     .channel(`group-messages-${groupId}`)
+        //     .on('postgres_changes', {
+        //         event: '*',
+        //         schema: 'public',
+        //         table: 'messages',
+        //         filter: `group_id=eq.${groupId}`
+        //     }, async (payload: any) => {
+        //         if (payload.eventType === 'INSERT' && payload.new.sender_id !== currentUser.id) {
+        //             // Fetch the complete message with sender info
+        //             try {
+        //                 const { data: messageData } = await supabase
+        //                     .from('messages')
+        //                     .select('*')
+        //                     .eq('id', payload.new.id)
+        //                     .single();
 
-                        if (messageData) {
-                            const { data: senderData } = await supabase
-                                .from('users')
-                                .select('id, full_name, profile_image, role')
-                                .eq('id', messageData.sender_id)
-                                .single();
+        //                 if (messageData) {
+        //                     const { data: senderData } = await supabase
+        //                         .from('users')
+        //                         .select('id, full_name, profile_image, role')
+        //                         .eq('id', messageData.sender_id)
+        //                         .single();
 
-                            const messageWithSender = {
-                                ...messageData,
-                                sender: senderData
-                            };
+        //                     const messageWithSender = {
+        //                         ...messageData,
+        //                         sender: senderData
+        //                     };
 
-                            setMessages(prev => [...prev, messageWithSender]);
+        //                     setMessages(prev => [...prev, messageWithSender]);
 
-                            // Automatically mark the new message as seen
-                            await markGroupMessagesAsSeen(currentUser.id, groupId);
-                        }
-                    } catch (error) {
-                        console.error('Error fetching new message:', error);
-                    }
-                }
-                if (payload.eventType === 'DELETE') {
-                    setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
-                }
-                if (payload.eventType === 'UPDATE' && payload.new.sender_id !== currentUser.id) {
-                    setMessages(prev => prev.map(msg => msg.id === payload.new.id ? {
-                        ...payload.new,
-                        sender: msg.sender
-                    } : msg));
-                }
-            })
-            .subscribe();
+        //                     // Automatically mark the new message as seen
+        //                     await markGroupMessagesAsSeen(currentUser.id, groupId);
+        //                 }
+        //             } catch (error) {
+        //                 console.error('Error fetching new message:', error);
+        //             }
+        //         }
+        //         if (payload.eventType === 'DELETE') {
+        //             setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+        //         }
+        //         if (payload.eventType === 'UPDATE' && payload.new.sender_id !== currentUser.id) {
+        //             setMessages(prev => prev.map(msg => msg.id === payload.new.id ? {
+        //                 ...payload.new,
+        //                 sender: msg.sender
+        //             } : msg));
+        //         }
+        //     })
+        //     .subscribe();
 
-        return () => {
-            supabase.removeChannel(messagesChannel);
-        };
+        // return () => {
+        //     supabase.removeChannel(messagesChannel);
+        // };
     }, [groupId, currentUser?.id]);
 
     // Auto-mark messages as seen when chat is visible and not minimized

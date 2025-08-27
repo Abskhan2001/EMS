@@ -17,7 +17,7 @@ import {
   Notebook
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../lib/store';
+import { useAppSelector } from '../hooks/redux.CustomHooks';
 import { useUser } from '../contexts/UserContext';
 import { sessionManager } from '../lib/sessionManager';
 import { toDate } from 'date-fns';
@@ -30,9 +30,8 @@ import { clearAuth } from '../slices/authSlice';
 const EmployeeLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
+  const user = useAppSelector((state) => state.auth.user);
   const { userProfile, loading } = useUser();
-  const setUser = useAuthStore((state) => state.setUser);
   const dispatch = useAppDispatch();
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -66,8 +65,7 @@ const EmployeeLayout: React.FC = () => {
       // Use SessionManager for proper logout
       await sessionManager.signOut();
 
-      // Clear both Zustand and Redux auth state
-      setUser(null);
+      // Clear Redux auth state
       dispatch(clearAuth());
 
       // Navigate to home page
@@ -75,7 +73,6 @@ const EmployeeLayout: React.FC = () => {
     } catch (error) {
       console.error('Error during logout:', error);
       // Fallback: clear local state even if remote logout fails
-      setUser(null);
       dispatch(clearAuth());
       localStorage.clear();
       navigate('/home');

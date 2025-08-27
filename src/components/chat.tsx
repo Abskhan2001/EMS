@@ -90,33 +90,34 @@ const ChatUserItem: React.FC<ChatUserItemProps> = ({
   useEffect(() => {
     fetchMessageCount();
 
-    const channel = supabase
-      .channel(`message-count-${currentUser.id}-${chatUser.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `reciever_id=eq.${currentUser.id} AND sender_id=eq.${chatUser.id}`,
-        },
-        handleNewMessage
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `reciever_id=eq.${currentUser.id} AND sender_id=eq.${chatUser.id}`,
-        },
-        handleMessageUpdate
-      )
-      .subscribe();
+    // WEBSOCKET REALTIME SUBSCRIPTION COMMENTED OUT
+    // const channel = supabase
+    //   .channel(`message-count-${currentUser.id}-${chatUser.id}`)
+    //   .on(
+    //     "postgres_changes",
+    //     {
+    //       event: "INSERT",
+    //       schema: "public",
+    //       table: "messages",
+    //       filter: `reciever_id=eq.${currentUser.id} AND sender_id=eq.${chatUser.id}`,
+    //     },
+    //     handleNewMessage
+    //   )
+    //   .on(
+    //     "postgres_changes",
+    //     {
+    //       event: "UPDATE",
+    //       schema: "public",
+    //       table: "messages",
+    //       filter: `reciever_id=eq.${currentUser.id} AND sender_id=eq.${chatUser.id}`,
+    //     },
+    //     handleMessageUpdate
+    //   )
+    //   .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
   }, [
     currentUser.id,
     chatUser.id,
@@ -217,33 +218,34 @@ const GroupItem: React.FC<GroupItemProps> = ({
   useEffect(() => {
     fetchGroupMessageCount();
 
-    const channel = supabase
-      .channel(`group-message-count-${currentUser.id}-${group.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `group_id=eq.${group.id}`,
-        },
-        handleNewGroupMessage
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "group_message_status",
-          filter: `user_id=eq.${currentUser.id}`,
-        },
-        handleGroupMessageStatusUpdate
-      )
-      .subscribe();
+    // WEBSOCKET REALTIME SUBSCRIPTION COMMENTED OUT
+    // const channel = supabase
+    //   .channel(`group-message-count-${currentUser.id}-${group.id}`)
+    //   .on(
+    //     "postgres_changes",
+    //     {
+    //       event: "INSERT",
+    //       schema: "public",
+    //       table: "messages",
+    //       filter: `group_id=eq.${group.id}`,
+    //     },
+    //     handleNewGroupMessage
+    //   )
+    //   .on(
+    //     "postgres_changes",
+    //     {
+    //       event: "*",
+    //       schema: "public",
+    //       table: "group_message_status",
+    //       filter: `user_id=eq.${currentUser.id}`,
+    //     },
+    //     handleGroupMessageStatusUpdate
+    //   )
+    //   .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
   }, [
     currentUser.id,
     group.id,
@@ -592,23 +594,24 @@ const ChatSidebar = ({ closechat, openchatperson, opengroup }: { closechat: () =
     fetchTotalCount();
     fetchGroups();
 
-    const channel = supabase
-      .channel(`total-messages-${currentUser.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-          filter: `reciever_id=eq.${currentUser.id}`,
-        },
-        fetchTotalCount
-      )
-      .subscribe();
+    // WEBSOCKET REALTIME SUBSCRIPTION COMMENTED OUT
+    // const channel = supabase
+    //   .channel(`total-messages-${currentUser.id}`)
+    //   .on(
+    //     "postgres_changes",
+    //     {
+    //       event: "*",
+    //       schema: "public",
+    //       table: "messages",
+    //       filter: `reciever_id=eq.${currentUser.id}`,
+    //     },
+    //     fetchTotalCount
+    //   )
+    //   .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
   }, [currentUser?.id, fetchTotalCount, fetchGroups]);
 
   const handleMessageCountChange = useCallback(

@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { withRetry } from "../lib/supabase";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, max, min } from "date-fns";
 import Attendance from "./Attendance";
 
@@ -33,47 +33,84 @@ const WeeklyDataUser = ({ selectedDate, selectedtab }) => {
   useEffect(() => {
 
     const fetchattendance = async () => {
-      const { data: attendanceData, error: attendanceerror } = await supabase
-        .from("attendance_logs")
-        .select("*")
-        .eq("user_id", userID)
-        .gte("check_in", adjustedWeekStart.toISOString())
-        .lte("check_in", adjustedWeekEnd.toISOString());
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/attendance?userId=${userID}&startDate=${adjustedWeekStart.toISOString()}&endDate=${adjustedWeekEnd.toISOString()}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (attendanceerror) return setError(attendanceerror);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-
-      setAttendance(attendanceData);
-      console.log("AttendAnceData", attendanceData);
-
+        const result = await response.json();
+        if (result.success) {
+          const attendanceData = result.data || [];
+          setAttendance(attendanceData);
+          console.log("AttendAnceData", attendanceData);
+        } else {
+          setError(result.message || 'Failed to fetch attendance data');
+        }
+      } catch (error) {
+        setError(error.message || 'Failed to fetch attendance data');
+      }
     }
 
     const fetchabsentees = async () => {
-      const { data: absenteesData, error: absenteesError } = await supabase
-        .from("absentees")
-        .select("*")
-        .eq("user_id", userID)
-        .gte("created_at", adjustedWeekStart.toISOString())
-        .lte("created_at", adjustedWeekEnd.toISOString());
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/absentees?userId=${userID}&startDate=${adjustedWeekStart.toISOString()}&endDate=${adjustedWeekEnd.toISOString()}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (absenteesError) return setError(absenteesError)
-      setabsentees(absenteesData);
-      console.log("Absentees Data", absenteesData);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
+        const result = await response.json();
+        if (result.success) {
+          const absenteesData = result.data || [];
+          setabsentees(absenteesData);
+          console.log("Absentees Data", absenteesData);
+        } else {
+          setError(result.message || 'Failed to fetch absentees data');
+        }
+      } catch (error) {
+        setError(error.message || 'Failed to fetch absentees data');
+      }
     }
 
     const fetchbreaks = async () => {
-      const { data: breaksData, error: breaksError } = await supabase
-        .from("breaks")
-        .select("*")
-        .eq("user_id", userID)
-        .gte("created_at", adjustedWeekStart.toISOString())
-        .lte("created_at", adjustedWeekEnd.toISOString());
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/breaks?userId=${userID}&startDate=${adjustedWeekStart.toISOString()}&endDate=${adjustedWeekEnd.toISOString()}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (breaksError) return setError(breaksError)
-      setbreaks(breaksData);
-      console.log("Breaks", breaksData);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
+        const result = await response.json();
+        if (result.success) {
+          const breaksData = result.data || [];
+          setbreaks(breaksData);
+          console.log("Breaks", breaksData);
+        } else {
+          setError(result.message || 'Failed to fetch breaks data');
+        }
+      } catch (error) {
+        setError(error.message || 'Failed to fetch breaks data');
+      }
     }
 
     if (selectedtab === "Weeklydata") {

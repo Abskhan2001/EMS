@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, addWeeks, addMonths, startOfMonth, startOfWeek, isAfter, endOfMonth, isWithinInterval, isWeekend, eachDayOfInterval } from 'date-fns';
 import { useAuthStore } from '../lib/store';
-import { supabase, withRetry, handleSupabaseError } from '../lib/supabase';
+import { withRetry } from '../lib/supabase';
 import { Clock, Calendar, AlertCircle, Coffee, MapPin, User, BarChart, LogOut, CalendarIcon } from 'lucide-react';
 import AbsenteeComponent from './AbsenteesData';
 import DashboardCards from '../components/DashboardCards';
@@ -199,22 +199,31 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
 
 
   const fetchleaves = async () => {
-    const { count, error } = await supabase
-      .from("absentees")
-      .select("*", { count: "exact", head: true })
-      .eq('user_id', userID)
-      .eq('absentee_type', "leave")
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString())
-    if (error) {
-      console.error("Error Fetching Absentees Count", error);
-    } else {
-      console.log("Leaves Count :", count);
-      if (count > 0) {
-        setleaves(count)
-      } else {
-        setleaves(0)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/absentees/count?userId=${userID}&type=leave&startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const result = await response.json();
+      if (result.success) {
+        const count = result.data.count || 0;
+        console.log("Leaves Count :", count);
+        setleaves(count);
+      } else {
+        console.error("Error Fetching Leaves Count", result.message);
+        setleaves(0);
+      }
+    } catch (error) {
+      console.error("Error Fetching Leaves Count", error);
+      setleaves(0);
     }
   }
   useEffect(() => {
@@ -227,22 +236,31 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
 
 
   const fetchabsentees = async () => {
-    const { count, error } = await supabase
-      .from("absentees")
-      .select("*", { count: "exact", head: true })
-      .eq('user_id', userID)
-      .eq('absentee_type', "Absent")
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString());
-    if (error) {
-      console.error("Error Fetching Absentees Count", error);
-    } else {
-      console.log("absentees Count :", count);
-      if (count > 0) {
-        setabsentees(count)
-      } else {
-        setabsentees(0)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/absentees/count?userId=${userID}&type=Absent&startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const result = await response.json();
+      if (result.success) {
+        const count = result.data.count || 0;
+        console.log("absentees Count :", count);
+        setabsentees(count);
+      } else {
+        console.error("Error Fetching Absentees Count", result.message);
+        setabsentees(0);
+      }
+    } catch (error) {
+      console.error("Error Fetching Absentees Count", error);
+      setabsentees(0);
     }
   }
   useEffect(() => {
@@ -262,13 +280,26 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
       try {
         setLoading(true)
         // Load user profile with retry mechanism
-        const { data: profileData, error: profileError } = await withRetry(() =>
-          supabase
-            .from('users')
-            .select('full_name, department, personal_email, slack_id,joining_date ')
-            .eq('id', user.id)
-            .single()
-        );
+        const { data: profileData, error: profileError } = await withRetry(async () => {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users/${user.id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          if (result.success) {
+            return result.data;
+          } else {
+            throw new Error(result.message || 'Failed to fetch user profile');
+          }
+        });
 
 
         if (profileError) throw profileError;
@@ -277,18 +308,27 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
         const startOfDay = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
         const endOfDay = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate(), 23, 59, 59)
 
-        const { data: attendanceData, error: attendanceError } = await withRetry(() =>
-          supabase
-            .from('attendance_logs')
-            .select('*')
-            .eq('user_id', user.id)
-            .gte('check_in', startOfDay.toISOString())
-            .lte('check_in', endOfDay.toISOString())
-            .order('check_in', { ascending: false })
-            .limit(1)
-            .single()
-        );
-        if (attendanceError && attendanceError.code !== 'PGRST116') throw attendanceError;
+        const { data: attendanceData, error: attendanceError } = await withRetry(async () => {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/attendance?userId=${user.id}&date=${todayDate.toISOString().split('T')[0]}&limit=1`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          if (result.success) {
+            return result.data.length > 0 ? result.data[0] : null;
+          } else {
+            throw new Error(result.message || 'Failed to fetch attendance data');
+          }
+        });
+        if (attendanceError) throw attendanceError;
         console.log("Attendance Data", attendanceData);
         if (!attendanceData) setTodayAttendance(null);
         setLoading(false);
@@ -296,15 +336,26 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
           setTodayAttendance(attendanceData);
 
           // Get break records if checked in
-          const { data: breakData, error: breakError } = await withRetry(() =>
-            supabase
-              .from('breaks')
-              .select('*')
-              .eq('attendance_id', attendanceData.id)
-            // .order('date', { ascending: true })
+          const { data: breakData, error: breakError } = await withRetry(async () => {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/attendance/breaks?attendanceId=${attendanceData.id || attendanceData._id}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                'Content-Type': 'application/json'
+              }
+            });
 
-            // .order('date', { ascending: true })
-          );
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+              return result.data || [];
+            } else {
+              throw new Error(result.message || 'Failed to fetch break data');
+            }
+          });
           if (breakError) throw breakError;
           if (breakData) setTodayBreak(breakData);
           if (!breakData) setTodayBreak(null);
@@ -353,13 +404,26 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
         console.log('Total days in month:', allDaysInMonth.length);
         console.log('Working days after excluding weekends and holidays:', workingDaysInMonth);
 
-        const { data: monthlyAttendance, error: monthlyError } = await supabase
-          .from('attendance_logs')
-          .select('*')
-          .eq('user_id', user.id)
-          .gte('check_in', monthStart.toISOString())
-          .lte('check_in', monthEnd.toISOString())
-          .order('check_in', { ascending: true });
+        const { data: monthlyAttendance, error: monthlyError } = await withRetry(async () => {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/attendance?userId=${user.id}&startDate=${monthStart.toISOString()}&endDate=${monthEnd.toISOString()}&sort=check_in&order=asc`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          if (result.success) {
+            return result.data || [];
+          } else {
+            throw new Error(result.message || 'Failed to fetch monthly attendance');
+          }
+        });
 
         if (monthlyError) throw monthlyError;
 
@@ -400,11 +464,28 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
             totalHours += Math.min(hours, 12);
           });
 
-          // Fetch all breaks related to this attendance
-          const { data: breaks, error: breaksError } = await supabase
-            .from("breaks")
-            .select("start_time, end_time")
-            .in("attendance_id", uniqueAttendance.map(a => a.id));
+          // Fetch all breaks related to this attendance using MongoDB API
+          const attendanceIds = uniqueAttendance.map(a => a.id || a._id).join(',');
+          const { data: breaks, error: breaksError } = await withRetry(async () => {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/attendance/breaks?attendanceIds=${attendanceIds}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+              return result.data || [];
+            } else {
+              throw new Error(result.message || 'Failed to fetch breaks data');
+            }
+          });
 
           if (breaksError) throw breaksError;
 
@@ -496,21 +577,34 @@ const Dashboard: React.FC = ({ isSmallScreen, isSidebarOpen }) => {
         endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       }
 
-      const { data, error } = await supabase
-        .from('attendance_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('check_in', startDate.toISOString())
-        .lte('check_in', endDate.toISOString());
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/attendance?userId=${user.id}&startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (error) {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+          console.error('Error fetching attendance data:', result.message);
+          return;
+        }
+
+        const data = result.data || [];
+
+        // Process data into a format for the SalesChart
+        const formattedData = processAttendanceData(data, viewMode);
+        setChartData(formattedData);
+      } catch (error) {
         console.error('Error fetching attendance data:', error);
         return;
       }
-
-      // Process data into a format for the SalesChart
-      const formattedData = processAttendanceData(data, viewMode);
-      setChartData(formattedData);
     };
 
     fetchData();

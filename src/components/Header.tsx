@@ -1,9 +1,7 @@
-import { ChevronDown, ChevronUp, LogOut, Menu, Search, User } from 'lucide-react'
+import { ChevronDown, ChevronUp, Search } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
-import { useAuthStore } from '../lib/store';
+import { useAppSelector } from '../hooks/redux.CustomHooks';
 import { Link } from 'react-router-dom';
-import { useUserContext } from '../lib/userprovider';
-import { supabase } from '../lib/supabase';
 import ChangePasswordModal from './ChangePasswordModal';
 
 interface SelectedUser {
@@ -47,12 +45,19 @@ function Header(
       handleSignOut: () => { }
     }
 ) {
-  const user = useAuthStore((state) => state.user);
+  const user = useAppSelector((state) => state.auth.user);
   const [selecteduser, setselecteduser] = useState<null | SelectedUser>(null)
   console.log("authenticated user is", user)
+  console.log("selecteduser is", selecteduser)
 
   const getuserprofile = async () => {
+    if (!user?.id) {
+      console.log('No user ID available for profile fetch');
+      return;
+    }
+
     try {
+      console.log('Fetching user profile for ID:', user.id);
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/users/${user?.id}`, {
         method: 'GET',
         headers: {
@@ -65,16 +70,33 @@ function Header(
         const result = await response.json();
         if (result.success && result.user) {
           // Transform the data to match expected interface
-          const transformedData = {
+          const transformedData: SelectedUser = {
             id: result.user._id || result.user.id,
             email: result.user.email,
             full_name: result.user.fullName || result.user.full_name,
             role: result.user.role,
             department: result.user.department,
-            profile_image: result.user.profilePicture || result.user.profile_image,
-            personal_email: result.user.personal_email,
+            manager_id: result.user.manager_id || null,
+            created_at: result.user.createdAt || result.user.created_at || new Date().toISOString(),
+            updated_at: result.user.updatedAt || result.user.updated_at,
             slack_id: result.user.slack_id,
-            joining_date: result.user.hireDate || result.user.joining_date
+            joining_date: result.user.hireDate || result.user.joining_date,
+            personal_email: result.user.personal_email,
+            fcm_token: result.user.fcm_token || '',
+            phone_number: result.user.phone_number,
+            per_hour_pay: result.user.per_hour_pay,
+            salary: result.user.salary,
+            profile_image: result.user.profilePicture || result.user.profile_image,
+            location: result.user.location,
+            profession: result.user.profession,
+            push_subscription: result.user.push_subscription || {
+              keys: { auth: '', p256dh: '' },
+              endpoint: '',
+              expirationTime: null
+            },
+            CNIC: result.user.CNIC,
+            bank_account: result.user.bank_account,
+            company_id: result.user.company_id || null
           };
           console.log("user profile is", transformedData);
           setselecteduser(transformedData);
@@ -140,7 +162,7 @@ function Header(
           </div>
           <div className="flex items-center space-x-4">
             {/* Profile Dropdown */}
-            {selecteduser ? (
+            {user ? (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -149,21 +171,22 @@ function Header(
                   <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center mr-2 overflow-hidden">
                     <img
                       src={(() => {
-                        if (selecteduser.profile_image) {
-                          const { data: { publicUrl } } = supabase
-                            .storage
-                            .from("profilepics")
-                            .getPublicUrl(selecteduser?.profile_image);
-                          return publicUrl;
+                        if (selecteduser?.profile_image) {
+                          // For MongoDB, profile_image should be a direct URL or base64 string
+                          if (selecteduser.profile_image.startsWith('http') || selecteduser.profile_image.startsWith('data:')) {
+                            return selecteduser.profile_image;
+                          }
+                          // If it's a filename, construct the URL (adjust this based on your backend setup)
+                          return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001'}/uploads/profiles/${selecteduser.profile_image}`;
                         }
-                        return selecteduser.role === "admin" ? "./admin.jpeg" : "./profile.png";
+                        return (selecteduser?.role === "admin" || user?.role === "admin") ? "./admin.jpeg" : "./profile.png";
                       })()}
                       alt="Profile"
                       className="w-full h-full object-cover"
                     />
                   </div>
                   <span className="hidden sm:inline">
-                    {user?.email ? user?.email.slice(0, user?.email.indexOf('@')) : "Techcreator"}
+                    {selecteduser?.full_name || user?.fullName || (user?.email ? user?.email.slice(0, user?.email.indexOf('@')) : "Techcreator")}
                   </span>
                   {isProfileOpen ? (
                     <ChevronUp className="w-[18px] h-[18px] ml-1" />
@@ -176,10 +199,10 @@ function Header(
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                     <div className="px-4 py-3 text-sm text-gray-900 border-b">
                       <div className="font-medium">
-                        {user?.email ? user?.email.slice(0, user?.email.indexOf('@')) : "Techcreator"}
+                        {selecteduser?.full_name || user?.fullName || (user?.email ? user?.email.slice(0, user?.email.indexOf('@')) : "Techcreator")}
                       </div>
                       <div className="text-gray-500">
-                        {user?.email || "unknown@gmail.com"}
+                        {selecteduser?.email || user?.email || "unknown@gmail.com"}
                       </div>
 
                     </div>

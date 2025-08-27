@@ -69,7 +69,7 @@ const enhancedApiClient = {
     }
   },
 
-  // Add WebSocket channel functionality
+  // Add WebSocket channel functionality (COMMENTED OUT)
   channel: (channelName: string) => {
     return createRealtimeChannel(channelName);
   },
@@ -81,15 +81,15 @@ const enhancedApiClient = {
     }
   },
 
-  // Initialize WebSocket connection
-  connect: () => {
-    return websocketService.connect();
-  },
+  // Initialize WebSocket connection (COMMENTED OUT)
+  // connect: () => {
+  //   return websocketService.connect();
+  // },
 
-  // Disconnect WebSocket
-  disconnect: () => {
-    websocketService.disconnect();
-  }
+  // Disconnect WebSocket (COMMENTED OUT)
+  // disconnect: () => {
+  //   websocketService.disconnect();
+  // }
 };
 
 // Export the enhanced API client as supabase for backward compatibility

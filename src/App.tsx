@@ -176,19 +176,19 @@ function AppContent() {
     initializeAuth();
   }, [dispatch]);
 
-  // Initialize WebSocket connection when user is authenticated
-  useEffect(() => {
-    if (user) {
-      websocketService.connect().catch(console.error);
-    } else {
-      websocketService.disconnect();
-    }
+  // Initialize WebSocket connection when user is authenticated (COMMENTED OUT)
+  // useEffect(() => {
+  //   if (user) {
+  //     websocketService.connect().catch(console.error);
+  //   } else {
+  //     websocketService.disconnect();
+  //   }
 
-    // Cleanup on unmount
-    return () => {
-      websocketService.disconnect();
-    };
-  }, [user]);
+  //   // Cleanup on unmount
+  //   return () => {
+  //     websocketService.disconnect();
+  //   };
+  // }, [user]);
 
   // Initialize chat state
   const [chatperson, setchatperson] = useState<boolean>(false);

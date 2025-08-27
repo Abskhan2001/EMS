@@ -36,26 +36,26 @@ function Chatbutton({ openchat }: { openchat: () => void }) {
 
     if (!currentuser?.id) return;
 
-    // Real-time subscription to messages table
-    const channel = supabase
-      .channel(`unseen-messages-${currentuser.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'messages',
-          filter: `reciever_id=eq.${currentuser.id}`,
-        },
-        async () => {
-          await getMessageCount(); // Refresh count when a change happens
-        }
-      )
-      .subscribe();
+    // Real-time subscription to messages table (COMMENTED OUT)
+    // const channel = supabase
+    //   .channel(`unseen-messages-${currentuser.id}`)
+    //   .on(
+    //     'postgres_changes',
+    //     {
+    //       event: '*', // Listen to INSERT, UPDATE, DELETE
+    //       schema: 'public',
+    //       table: 'messages',
+    //       filter: `reciever_id=eq.${currentuser.id}`,
+    //     },
+    //     async () => {
+    //       await getMessageCount(); // Refresh count when a change happens
+    //     }
+    //   )
+    //   .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // return () => {
+    //   supabase.removeChannel(channel);
+    // };
   }, [currentuser]);
 
   // If openchat is not provided, don't render the button

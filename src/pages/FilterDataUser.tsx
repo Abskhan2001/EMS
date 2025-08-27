@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { withRetry } from "../lib/supabase";
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isWeekend } from "date-fns";
 
 const FilterDataUser = ({ startdate, enddate, search, selectedtab }) => {
@@ -20,45 +20,79 @@ const FilterDataUser = ({ startdate, enddate, search, selectedtab }) => {
     const startDateFormatted = `${startdate}T00:00:00.000Z`;
     const endDateFormatted = `${enddate}T23:59:59.000Z`;
 
+    try {
+      // Fetch attendance data
+      const attendanceResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/attendance?userId=${userID}&startDate=${startDateFormatted}&endDate=${endDateFormatted}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    // Fetch attendance data
-    const { data: attendanceData, error: attendanceerror } = await supabase
-      .from("attendance_logs")
-      .select("*")
-      .eq("user_id", userID)
-      .gte("check_in", startDateFormatted)
-      .lte("check_in", endDateFormatted);
+      if (!attendanceResponse.ok) {
+        throw new Error(`HTTP error! status: ${attendanceResponse.status}`);
+      }
 
-    if (attendanceerror) return setError(attendanceerror);
+      const attendanceResult = await attendanceResponse.json();
+      if (attendanceResult.success) {
+        const attendanceData = attendanceResult.data || [];
+        setAttendance(attendanceData);
+        console.log("AttendAnceData", attendanceData);
+      } else {
+        setError(attendanceResult.message || 'Failed to fetch attendance data');
+        return;
+      }
 
-    setAttendance(attendanceData);
-    console.log("AttendAnceData", attendanceData);
+      // Fetch absentee data
+      const absenteesResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/absentees?userId=${userID}&startDate=${startDateFormatted}&endDate=${endDateFormatted}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    // Fetch absentee data
-    const { data: absenteesData, error: absenteesError } = await supabase
-      .from("absentees")
-      .select("*")
-      .eq("user_id", userID)
-      .gte("created_at", startDateFormatted)
-      .lte("created_at", endDateFormatted);
+      if (!absenteesResponse.ok) {
+        throw new Error(`HTTP error! status: ${absenteesResponse.status}`);
+      }
 
-    if (absenteesError) return setError(absenteesError);
+      const absenteesResult = await absenteesResponse.json();
+      if (absenteesResult.success) {
+        const absenteesData = absenteesResult.data || [];
+        setabsentees(absenteesData);
+        console.log("Absentees Data", absenteesData);
+      } else {
+        setError(absenteesResult.message || 'Failed to fetch absentees data');
+        return;
+      }
 
-    setabsentees(absenteesData);
-    console.log("Absentees Data", absenteesData);
+      // Fetch breaks data
+      const breaksResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/breaks?userId=${userID}&startDate=${startDateFormatted}&endDate=${endDateFormatted}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    // Fetch breaks data
-    const { data: breaksData, error: breaksError } = await supabase
-      .from("breaks")
-      .select("*")
-      .eq("user_id", userID)
-      .gte("created_at", startDateFormatted)
-      .lte("created_at", endDateFormatted);
+      if (!breaksResponse.ok) {
+        throw new Error(`HTTP error! status: ${breaksResponse.status}`);
+      }
 
-    if (breaksError) return setError(breaksError);
+      const breaksResult = await breaksResponse.json();
+      if (breaksResult.success) {
+        const breaksData = breaksResult.data || [];
+        setbreaks(breaksData);
+        console.log("Breaks", breaksData);
+      } else {
+        setError(breaksResult.message || 'Failed to fetch breaks data');
+        return;
+      }
 
-    setbreaks(breaksData);
-    console.log("Breaks", breaksData);
+    } catch (error) {
+      setError(error.message || 'Failed to fetch data');
+    }
 
     setisLoading(false);
   };

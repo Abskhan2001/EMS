@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import { startOfYear, endOfYear } from "date-fns";
-import { supabase } from "../lib/supabase";
+import { withRetry } from "../lib/supabase";
 import { useAuthStore } from "../lib/store";
 
 // Define leave types with initial values and limits
@@ -29,61 +29,76 @@ export default function DashboardCards() {
   const yearEnd = endOfYear(selectedDate);
 
   async function fetchremote() {
-    const { data, error } = await supabase
-      .from('attendance_logs')
-      .select('*')
-      .eq('user_id', currentUser?.id || localStorage.getItem('user_id'))
-      .eq("work_mode", "remote")
-      .gte('created_at', yearStart.toISOString())
-      .lte('created_at', yearEnd.toISOString());
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/attendance?userId=${currentUser?.id || localStorage.getItem('user_id')}&workMode=remote&startDate=${yearStart.toISOString()}&endDate=${yearEnd.toISOString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    if (error) {
-      console.error("Error fetching remote work data:", error);
-    }
-    else {
-      console.log("the workfrom home details", data);
-      
-      // Process remote work data
-      if (data) {
-        // Update the leaveData state to include remote work count
-        setLeaveData(prevLeaveData => {
-          const newLeaveData = [...prevLeaveData];
-          const remoteWorkIndex = newLeaveData.findIndex(item => item.type === "Remote Work");
-          
-          if (remoteWorkIndex !== -1) {
-            // Count the number of remote work days
-            const remoteWorkCount = data.length;
-            newLeaveData[remoteWorkIndex].used = remoteWorkCount;
-          }
-          
-          return newLeaveData;
-        });
-        
-        // After updating remote work count, recalculate total leave
-        // This ensures that remote work is included in the total
-        fetchAbsentees();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const result = await response.json();
+      if (result.success) {
+        const data = result.data || [];
+        console.log("the workfrom home details", data);
+
+        // Process remote work data
+        if (data) {
+          // Update the leaveData state to include remote work count
+          setLeaveData(prevLeaveData => {
+            const newLeaveData = [...prevLeaveData];
+            const remoteWorkIndex = newLeaveData.findIndex(item => item.type === "Remote Work");
+
+            if (remoteWorkIndex !== -1) {
+              // Count the number of remote work days
+              const remoteWorkCount = data.length;
+              newLeaveData[remoteWorkIndex].used = remoteWorkCount;
+            }
+
+            return newLeaveData;
+          });
+
+          // After updating remote work count, recalculate total leave
+          // This ensures that remote work is included in the total
+          fetchAbsentees();
+        }
+      } else {
+        console.error("Error fetching remote work data:", result.message);
+      }
+    } catch (error) {
+      console.error("Error fetching remote work data:", error);
     }
   }
 
   async function fetchAbsentees() {
     try {
-      const { data, error } = await supabase
-        .from('absentees')
-        .select('*')
-        .eq('user_id', currentUser?.id || localStorage.getItem('user_id'))
-        .gte('created_at', yearStart.toISOString())
-        .lte('created_at', yearEnd.toISOString());
-      
-      if (error) {
-        console.error('Error fetching absentees:', error);
-        return;
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/absentees?userId=${currentUser?.id || localStorage.getItem('user_id')}&startDate=${yearStart.toISOString()}&endDate=${yearEnd.toISOString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      console.log("the all absentees for the person", data);
-      
-      if (data) {
-        processAbsenteeData(data);
+
+      const result = await response.json();
+      if (result.success) {
+        const data = result.data || [];
+        console.log("the all absentees for the person", data);
+
+        if (data) {
+          processAbsenteeData(data);
+        }
+      } else {
+        console.error('Error fetching absentees:', result.message);
       }
     } catch (err) {
       console.error('Failed to fetch absentees:', err);
