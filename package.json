@@ -15,7 +15,7 @@
     "electron:build": "vite build && electron-builder"
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.1",
+    "@headlessui/react": "^2.2.7",
     "@hello-pangea/dnd": "^16.6.0",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^3.9.0",
@@ -91,7 +91,7 @@
     "react-dom": "^18.3.1",
     "react-feather": "^2.0.10",
     "react-hook-form": "^7.53.0",
-    "react-hot-toast": "^2.5.2",
+    "react-hot-toast": "^2.6.0",
     "react-icons": "^5.5.0",
     "react-intersection-observer": "^9.16.0",
     "react-modal": "^3.16.3",
@@ -106,7 +106,7 @@
     "screenshot-desktop": "^1.15.1",
     "sonner": "^1.5.0",
     "supabase": "^2.15.8",
-    "sweetalert2": "^11.22.4",
+    "sweetalert2": "^11.22.5",
     "swiper": "^11.2.10",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
@@ -115,7 +115,7 @@
     "wait-on": "^8.0.3",
     "web-push": "^3.6.7",
     "ws": "^8.18.1",
-    "yup": "^1.6.1",
+    "yup": "^1.7.0",
     "zod": "^3.23.8",
     "zustand": "^4.5.2"
   },
