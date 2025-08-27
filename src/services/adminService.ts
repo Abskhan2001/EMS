@@ -72,3 +72,63 @@ export const deleteEmployee = async (employeeId: string) => {
     throw error;
   }
 };
+
+export const getLocation = async () => {
+    const token = getToken();
+    try {
+        const response = await axios.get(`${API_BASE_URL}/admin/location/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return response.data;
+    } catch (error: any) {
+        // Don't show error alert for getting location as it might not exist
+        console.error('Failed to get location:', error);
+        return null;
+    }
+};
+
+export const setLocation = async (locationData: { 
+    coordinates: {
+        latitude: number; 
+        longitude: number;
+    };
+    radius: number;
+}) => {
+    const token = getToken();
+    try {
+        const response = await axios.post(`${API_BASE_URL}/admin/location`, locationData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return response.data;
+    } catch (error: any) {
+        // Let the component handle the error display
+        console.error('Failed to set location:', error);
+        throw error;
+    }
+};
+
+export const updateLocation = async (locationId: string, locationData: { 
+    coordinates: {
+        latitude: number; 
+        longitude: number;
+    };
+    radius: number;
+}) => {
+    const token = getToken();
+    try {
+        const response = await axios.put(`${API_BASE_URL}/admin/location/${locationId}`, locationData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return response.data;
+    } catch (error: any) {
+        // Let the component handle the error display
+        console.error('Failed to update location:', error);
+        throw error;
+    }
+};

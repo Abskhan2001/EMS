@@ -4,77 +4,61 @@ import { XMarkIcon, MapPinIcon, UsersIcon, FolderIcon } from '@heroicons/react/2
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { useUser } from '../contexts/UserContext';
-import { supabase, handleSupabaseError } from '../lib/supabase';
-import { toast } from 'react-hot-toast';
+import { getLocation, setLocation, updateLocation } from '../services/adminService';
+import Swal from 'sweetalert2';
 
 const AdminOrganization: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
     const [locationExists, setLocationExists] = useState(false);
-    const [locationData, setLocationData] = useState<{ longitude: string; latitude: string } | null>(null);
+    const [locationData, setLocationData] = useState<{ longitude: string; latitude: string; radius: string; id?: string } | null>(null);
     const [organizationData, setOrganizationData] = useState<any>(null);
     const [userCount, setUserCount] = useState<number>(0);
     const [projectCount, setProjectCount] = useState<number>(0);
-    const [clientCount, setClientCount] = useState<number>(0); // <-- Added for clients
+    const [clientCount, setClientCount] = useState<number>(0);
     const { userProfile } = useUser();
 
     useEffect(() => {
         const fetchOrganizationData = async () => {
-            if (userProfile?.organization_id) {
-                // Fetch location data
-                const { data: locationData } = await supabase
-                    .from('Location')
-                    .select('longitude, latitude')
-                    .eq('organization_id', userProfile.organization_id)
-                    .single();
+            // Get organization ID from localStorage
+            const organizationId = localStorage.getItem('organizationId');
+            
+            if (!organizationId) {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Organization ID not found in local storage',
+                    icon: 'error',
+                    confirmButtonColor: '#D32F2F',
+                });
+                return;
+            }
 
-                if (locationData) {
+            try {
+                const data = await getLocation(organizationId);
+                if (data && data.length > 0) {
+                    const locationInfo = data[0]; // Get the first location from array
                     setLocationExists(true);
                     setLocationData({
-                        longitude: locationData.longitude.toString(),
-                        latitude: locationData.latitude.toString()
+                        longitude: locationInfo.coordinates?.longitude?.toString() || '',
+                        latitude: locationInfo.coordinates?.latitude?.toString() || '',
+                        radius: locationInfo.radius?.toString() || '',
+                        id: locationInfo._id || locationInfo.id
                     });
                 } else {
                     setLocationExists(false);
                     setLocationData(null);
                 }
-
-                // Fetch organization details
-                const { data: orgData } = await supabase
-                    .from('organizations')
-                    .select('name, slug, description, is_active')
-                    .eq('id', userProfile.organization_id)
-                    .single();
-
-                if (orgData) {
-                    setOrganizationData(orgData);
-                }
-
-                // Fetch user count
-                const { count: usersCount } = await supabase
-                    .from('users')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('organization_id', userProfile.organization_id);
-
-                setUserCount(usersCount || 0);
-
-                // Fetch project count
-                const { count: projectsCount } = await supabase
-                    .from('projects')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('organization_id', userProfile.organization_id);
-
-                setProjectCount(projectsCount || 0);
-
-                // Fetch client count (users with role 'client')
-                const { count: clientsCount } = await supabase
-                    .from('users')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('organization_id', userProfile.organization_id)
-                    .eq('role', 'client');
-
-                setClientCount(clientsCount || 0);
+            } catch (error: any) {
+                console.error("Failed to fetch location", error);
+                setLocationExists(false);
+                setLocationData(null);
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Failed to fetch location data',
+                    icon: 'error',
+                    confirmButtonColor: '#D32F2F',
+                });
             }
         };
 
@@ -84,7 +68,6 @@ const AdminOrganization: React.FC = () => {
     const closeModal = () => setIsOpen(false);
     const openModal = () => setIsOpen(true);
 
-    // Define validation schema using Yup
     const LocationSchema = Yup.object().shape({
         longitude: Yup.number()
             .required('Longitude is required')
@@ -95,59 +78,85 @@ const AdminOrganization: React.FC = () => {
             .required('Latitude is required')
             .typeError('Latitude must be a number')
             .min(-90, 'Latitude must be between -90 and 90')
-            .max(90, 'Latitude must be between -90 and 90')
+            .max(90, 'Latitude must be between -90 and 90'),
+        radius: Yup.number()
+            .required('Radius is required')
+            .typeError('Radius must be a number')
+            .min(0, 'Radius must be a positive number')
     });
 
-    // Initial form values
     const initialValues = locationData || {
         longitude: '',
-        latitude: ''
+        latitude: '',
+        radius: ''
     };
 
-    const handleSubmit = async (values: { longitude: string | number; latitude: string | number }) => {
-        if (!userProfile?.organization_id) {
-            toast.error('Organization ID not found');
+    const handleSubmit = async (values: { longitude: string | number; latitude: string | number; radius: string | number }) => {
+        // Get organization ID from localStorage
+        const organizationId = localStorage.getItem('organizationId');
+        
+        if (!organizationId) {
+            Swal.fire({
+                title: 'Error!',
+                text: 'Organization ID not found in local storage',
+                icon: 'error',
+                confirmButtonColor: '#D32F2F',
+            });
             return;
         }
 
         setLoading(true);
         try {
-            // Check if location already exists for this organization
-            const { data: existingLocation } = await supabase
-                .from('Location')
-                .select('id')
-                .eq('organization_id', userProfile.organization_id)
-                .single();
-
-            if (existingLocation) {
-                // Update existing location
-                const { error } = await supabase
-                    .from('Location')
-                    .update({
-                        longitude: Number(values.longitude),
+            if (locationExists && locationData?.id) {
+                // Update existing location using PUT API
+                await updateLocation(locationData.id, {
+                    coordinates: {
                         latitude: Number(values.latitude),
-                    })
-                    .eq('organization_id', userProfile.organization_id);
-
-                if (error) throw error;
-                toast.success('Location updated successfully');
+                        longitude: Number(values.longitude)
+                    },
+                    radius: Number(values.radius)
+                });
             } else {
-                // Insert new location
-                const { error } = await supabase
-                    .from('Location')
-                    .insert({
-                        organization_id: userProfile.organization_id,
-                        longitude: Number(values.longitude),
+                // Create new location using POST API
+                await setLocation({
+                    organization_id: organizationId,
+                    coordinates: {
                         latitude: Number(values.latitude),
-                    });
-
-                if (error) throw error;
-                toast.success('Location added successfully');
+                        longitude: Number(values.longitude)
+                    },
+                    radius: Number(values.radius)
+                });
             }
 
+            // Fetch the updated location data from the server
+            const updatedLocationData = await getLocation(organizationId);
+            
+            if (updatedLocationData && updatedLocationData.length > 0) {
+                const locationInfo = updatedLocationData[0];
+                setLocationExists(true);
+                setLocationData({
+                    longitude: locationInfo.coordinates?.longitude?.toString() || '',
+                    latitude: locationInfo.coordinates?.latitude?.toString() || '',
+                    radius: locationInfo.radius?.toString() || '',
+                    id: locationInfo._id || locationInfo.id
+                });
+            }
+
+            Swal.fire({
+                title: 'Success!',
+                text: `Location ${locationExists ? 'updated' : 'set'} successfully.`,
+                icon: 'success',
+                confirmButtonColor: '#6B46C1',
+            });
+
             closeModal();
-        } catch (error) {
-            toast.error(handleSupabaseError(error));
+        } catch (error: any) {
+            Swal.fire({
+                title: 'Error!',
+                text: error?.response?.data?.message || error.message || 'An unknown error occurred.',
+                icon: 'error',
+                confirmButtonColor: '#D32F2F',
+            });
             console.error('Error saving location:', error);
         } finally {
             setLoading(false);
@@ -156,7 +165,12 @@ const AdminOrganization: React.FC = () => {
 
     const getCurrentLocation = async (setFieldValue: any) => {
         if (!navigator.geolocation) {
-            toast.error('Geolocation is not supported by your browser');
+            Swal.fire({
+                title: 'Error!',
+                text: 'Geolocation is not supported by your browser',
+                icon: 'error',
+                confirmButtonColor: '#D32F2F',
+            });
             return;
         }
 
@@ -174,24 +188,37 @@ const AdminOrganization: React.FC = () => {
                 setFieldValue('longitude', longitude.toFixed(6));
                 setFieldValue('latitude', latitude.toFixed(6));
                 setGettingLocation(false);
-                toast.success('Location detected successfully');
+                Swal.fire({
+                    title: 'Success!',
+                    text: 'Location detected successfully',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    confirmButtonColor: '#6B46C1',
+                });
             },
             (error) => {
                 setGettingLocation(false);
+                let errorMessage = 'An unknown error occurred while getting location.';
+                
                 switch (error.code) {
                     case error.PERMISSION_DENIED:
-                        toast.error('Location permission denied. Please enable location access.');
+                        errorMessage = 'Location permission denied. Please enable location access.';
                         break;
                     case error.POSITION_UNAVAILABLE:
-                        toast.error('Location information is unavailable.');
+                        errorMessage = 'Location information is unavailable.';
                         break;
                     case error.TIMEOUT:
-                        toast.error('Location request timed out.');
-                        break;
-                    default:
-                        toast.error('An unknown error occurred while getting location.');
+                        errorMessage = 'Location request timed out.';
                         break;
                 }
+                
+                Swal.fire({
+                    title: 'Error!',
+                    text: errorMessage,
+                    icon: 'error',
+                    confirmButtonColor: '#D32F2F',
+                });
             },
             options
         );
@@ -241,7 +268,6 @@ const AdminOrganization: React.FC = () => {
                     </div>
                 )}
 
-                {/* Updated grid to 3 columns for the new card */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                         <div className="flex items-center">
@@ -267,7 +293,6 @@ const AdminOrganization: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* New Card for Total Clients */}
                     <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                         <div className="flex items-center">
                             <div className="p-3 rounded-full bg-green-100 mr-4">
@@ -283,7 +308,7 @@ const AdminOrganization: React.FC = () => {
             </div>
 
             <Transition appear show={isOpen} as={Fragment}>
-                <Dialog as="div" className="relative z-10" onClose={closeModal}>
+                <Dialog as="div" className="relative z-10" onClose={() => {}} static>
                     <Transition.Child
                         as={Fragment}
                         enter="ease-out duration-300"
@@ -361,7 +386,7 @@ const AdminOrganization: React.FC = () => {
                                                     />
                                                     <ErrorMessage name="longitude" component="div" className="text-red-500 text-sm mt-1" />
                                                 </div>
-                                                <div className="mb-6">
+                                                <div className="mb-4">
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                                         Latitude
                                                     </label>
@@ -372,6 +397,18 @@ const AdminOrganization: React.FC = () => {
                                                         placeholder="Enter latitude"
                                                     />
                                                     <ErrorMessage name="latitude" component="div" className="text-red-500 text-sm mt-1" />
+                                                </div>
+                                                <div className="mb-6">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                        Radius (in meters)
+                                                    </label>
+                                                    <Field
+                                                        name="radius"
+                                                        type="text"
+                                                        className={`w-full border ${errors.radius && touched.radius ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                                                        placeholder="Enter radius"
+                                                    />
+                                                    <ErrorMessage name="radius" component="div" className="text-red-500 text-sm mt-1" />
                                                 </div>
                                                 <div className="flex justify-end gap-3">
                                                     <button
