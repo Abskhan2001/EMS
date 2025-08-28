@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { getClientsByOrganization } from '../services/adminService';
+import { getClientsByOrganization, deleteClient } from '../services/adminService';
 
 // Define the Client interface based on the backend model
 export interface Client {
@@ -111,6 +111,20 @@ export const fetchClients = createAsyncThunk(
   }
 );
 
+// Async thunk to delete client (soft delete)
+export const deleteClientAsync = createAsyncThunk(
+  'clients/deleteClient',
+  async (clientId: string, { rejectWithValue }) => {
+    try {
+      await deleteClient(clientId);
+      return clientId;
+    } catch (error: any) {
+      console.error('Error in deleteClient:', error);
+      return rejectWithValue(error.message || 'Failed to delete client');
+    }
+  }
+);
+
 const clientsSlice = createSlice({
   name: 'clients',
   initialState,
@@ -158,6 +172,20 @@ const clientsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchClients.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      // Delete client cases
+      .addCase(deleteClientAsync.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteClientAsync.fulfilled, (state, action) => {
+        state.loading = false;
+        // Remove the deleted client from the list
+        state.clients = state.clients.filter(client => client._id !== action.payload);
+      })
+      .addCase(deleteClientAsync.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

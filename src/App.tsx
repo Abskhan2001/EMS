@@ -64,6 +64,7 @@ import UserPage from './pages/UserPage';
 import UserOrganizationDetail from './pages/UserOrganizationDetail';
 import SuperAdminComplaint from './pages/superadmincompalint';
 import ProjectsAdmin from './components/ProjectsAdmin';
+import AdminProjects from './pages/adminprojects';
 import AdminOrganization from './components/adminorganization';
 import EmployeeAttendanceTable from './pages/ListViewOfEmployees';
 import EmployeesDetails from './pages/EmployeesDetails';
@@ -404,9 +405,7 @@ function AppContent() {
                   index
                   element={<Navigate to="employeAttandanceTable" replace />}
                 />
-                <Route path="projects" element={<ProjectsAdmin />}>
-                  <Route path=":id" element={<TaskBoardAdmin setSelectedTAB={undefined} selectedTAB={undefined} ProjectId={undefined} devopss={undefined} />} />
-                </Route>
+                <Route path="projects" element={<AdminProjects />} />
                 <Route path="organization" element={<AdminOrganization />} />
                 <Route
                   path="employeAttandanceTable"

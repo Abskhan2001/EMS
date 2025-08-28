@@ -220,10 +220,33 @@ export const deleteClient = async (clientId: any) => {
   }
 };
 
-export const getProjectById = async (projectId: any) => {
+// Project Management Functions
+export const getProjects = async (params?: { status?: string; priority?: string; search?: string; page?: number; limit?: number }) => {
   const token = getToken();
   try {
-    const response = await axios.get(`${API_BASE_URL}/admin/projects/${projectId}`, {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.priority) queryParams.append('priority', params.priority);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await axios.get(`${API_BASE_URL}/projects?${queryParams.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch projects:', error);
+    throw error;
+  }
+};
+
+export const getProjectById = async (projectId: string) => {
+  const token = getToken();
+  try {
+    const response = await axios.get(`${API_BASE_URL}/projects/${projectId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -231,6 +254,70 @@ export const getProjectById = async (projectId: any) => {
     return response.data.project;
   } catch (error) {
     console.error('Failed to fetch project:', error);
+    throw error;
+  }
+};
+
+export const createProject = async (projectData: {
+  name: string;
+  description?: string;
+  projectManager?: string;
+  projectClient?: string;
+  projectType: 'frontend' | 'backend' | 'fullstack';
+  teamMembers?: string[];
+  startDate?: string;
+  endDate?: string;
+  deadline?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  category?: 'web_development' | 'mobile_app' | 'desktop_app' | 'api' | 'maintenance' | 'research' | 'other';
+  tags?: string[];
+  budget?: {
+    estimated: number;
+    currency: string;
+  };
+}) => {
+  const token = getToken();
+  try {
+    const response = await axios.post(`${API_BASE_URL}/projects`, projectData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.data.project;
+  } catch (error) {
+    console.error('Failed to create project:', error);
+    throw error;
+  }
+};
+
+export const updateProject = async (projectId: string, projectData: any) => {
+  const token = getToken();
+  try {
+    const response = await axios.put(`${API_BASE_URL}/projects/${projectId}`, projectData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.data.project;
+  } catch (error) {
+    console.error('Failed to update project:', error);
+    throw error;
+  }
+};
+
+export const deleteProject = async (projectId: string) => {
+  const token = getToken();
+  try {
+    const response = await axios.delete(`${API_BASE_URL}/projects/${projectId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to delete project:', error);
     throw error;
   }
 };

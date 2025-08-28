@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { getEmployeesByOrganization } from '../services/adminService';
+import { getEmployeesByOrganization, addEmployee as addEmployeeService, updateEmployee as updateEmployeeService, deleteEmployee } from '../services/adminService';
 
 export interface Employee {
   _id: string;
@@ -104,6 +104,20 @@ export const fetchEmployees = createAsyncThunk(
   }
 );
 
+// Async thunk to delete employee (soft delete)
+export const deleteEmployeeAsync = createAsyncThunk(
+  'employee/deleteEmployee',
+  async (employeeId: string, { rejectWithValue }) => {
+    try {
+      await deleteEmployee(employeeId);
+      return employeeId;
+    } catch (error: any) {
+      console.error('Error in deleteEmployee:', error);
+      return rejectWithValue(error.message || 'Failed to delete employee');
+    }
+  }
+);
+
 const employeeSlice = createSlice({
   name: 'employee',
   initialState,
@@ -141,6 +155,20 @@ const employeeSlice = createSlice({
         state.employees = action.payload || [];
       })
       .addCase(fetchEmployees.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      // Delete employee cases
+      .addCase(deleteEmployeeAsync.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteEmployeeAsync.fulfilled, (state, action) => {
+        state.loading = false;
+        // Remove the deleted employee from the list
+        state.employees = state.employees.filter(emp => emp._id !== action.payload);
+      })
+      .addCase(deleteEmployeeAsync.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });
