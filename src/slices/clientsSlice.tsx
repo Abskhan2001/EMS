@@ -85,7 +85,25 @@ export const fetchClients = createAsyncThunk(
       }
 
       const clientsData = await getClientsByOrganization(organizationId);
-      return clientsData;
+
+      // Transform the data to match our interface
+      const transformedClients = clientsData
+        .filter((client: any) => client.role === 'client' || client.role === 'Client')
+        .map((client: any) => ({
+          _id: client._id,
+          fullName: client.full_name || client.fullName || 'Unknown',
+          email: client.email || '',
+          phoneNumber: client.phone || client.phone_number || client.phoneNumber,
+          role: 'client' as const,
+          organizationId: client.organization_id || client.organizationId,
+          profilePicture: client.profile_image || client.profilePicture,
+          createdAt: client.created_at || client.createdAt || new Date().toISOString(),
+          companyName: client.companyName,
+          isActive: client.isActive !== false,
+          emailVerified: client.emailVerified || false,
+        }));
+
+      return transformedClients;
     } catch (error: any) {
       console.error('Error in fetchClients:', error);
       return rejectWithValue(error.message || 'Failed to fetch clients');

@@ -76,7 +76,7 @@ export const deleteEmployee = async (employeeId: string) => {
 export const getLocation = async () => {
     const token = getToken();
     try {
-        const response = await axios.get(`${API_BASE_URL}/admin/location/`, {
+        const response = await axios.get(`${API_BASE_URL}/admin/location`, {
             headers: {
                 Authorization: `Bearer ${token}`,
             },
@@ -190,7 +190,7 @@ export const getClientsByOrganization = async (organizationId:any) => {
   }
 };
 
-export const getClientById = async (clientId) => {
+export const getClientById = async (clientId: any) => {
   const token = getToken();
   try {
     const response = await axios.get(`${API_BASE_URL}/admin/clients/${clientId}`, {
@@ -205,7 +205,7 @@ export const getClientById = async (clientId) => {
   }
 };
 
-export const deleteClient = async (clientId) => {
+export const deleteClient = async (clientId: any) => {
   const token = getToken();
   try {
     const response = await axios.delete(`${API_BASE_URL}/admin/clients/${clientId}`, {
@@ -220,7 +220,7 @@ export const deleteClient = async (clientId) => {
   }
 };
 
-export const getProjectById = async (projectId) => {
+export const getProjectById = async (projectId: any) => {
   const token = getToken();
   try {
     const response = await axios.get(`${API_BASE_URL}/admin/projects/${projectId}`, {

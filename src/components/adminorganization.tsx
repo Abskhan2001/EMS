@@ -3,11 +3,20 @@ import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, MapPinIcon, UsersIcon, FolderIcon } from '@heroicons/react/24/outline';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
+import { useDispatch, useSelector } from 'react-redux';
 import { useUser } from '../contexts/UserContext';
 import { getLocation, setLocation, updateLocation } from '../services/adminService';
+import {
+  fetchOrganizationLocation,
+  setLocation as setLocationInStore
+} from '../slices/organizationLocationSlice';
+import { RootState, AppDispatch } from '../store';
 import Swal from 'sweetalert2';
 
 const AdminOrganization: React.FC = () => {
+    const dispatch = useDispatch<AppDispatch>();
+    const { location: organizationLocation, loading: locationLoading } = useSelector((state: RootState) => state.organizationLocation);
+
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
@@ -65,6 +74,27 @@ const AdminOrganization: React.FC = () => {
         fetchOrganizationData();
     }, [userProfile]);
 
+    // Fetch organization location using Redux
+    useEffect(() => {
+        dispatch(fetchOrganizationLocation());
+    }, [dispatch]);
+
+    // Update local state when Redux state changes
+    useEffect(() => {
+        if (organizationLocation && organizationLocation._id) {
+            setLocationExists(true);
+            setLocationData({
+                longitude: organizationLocation.coordinates?.longitude?.toString() || '',
+                latitude: organizationLocation.coordinates?.latitude?.toString() || '',
+                radius: organizationLocation.radius?.toString() || '',
+                id: organizationLocation._id || organizationLocation.id
+            });
+        } else {
+            setLocationExists(false);
+            setLocationData(null);
+        }
+    }, [organizationLocation]);
+
     const closeModal = () => setIsOpen(false);
     const openModal = () => setIsOpen(true);
 
@@ -85,11 +115,18 @@ const AdminOrganization: React.FC = () => {
             .min(0, 'Radius must be a positive number')
     });
 
-    const initialValues = locationData || {
-        longitude: '',
-        latitude: '',
-        radius: ''
+    // Use Redux state for initial values if available
+    const initialValues = {
+        longitude: organizationLocation?.coordinates?.longitude?.toString() || locationData?.longitude || '',
+        latitude: organizationLocation?.coordinates?.latitude?.toString() || locationData?.latitude || '',
+        radius: organizationLocation?.radius?.toString() || locationData?.radius || ''
     };
+
+    // Debug logging
+    console.log('Redux organizationLocation:', organizationLocation);
+    console.log('Local locationData:', locationData);
+    console.log('Initial values:', initialValues);
+    console.log('Location exists:', locationExists);
 
     const handleSubmit = async (values: { longitude: string | number; latitude: string | number; radius: string | number }) => {
         // Get organization ID from localStorage
@@ -107,9 +144,12 @@ const AdminOrganization: React.FC = () => {
 
         setLoading(true);
         try {
-            if (locationExists && locationData?.id) {
+            // Use Redux state to determine if location exists and get the ID
+            const locationId = organizationLocation?._id || organizationLocation?.id || locationData?.id;
+
+            if (locationExists && locationId) {
                 // Update existing location using PUT API
-                await updateLocation(locationData.id, {
+                await updateLocation(locationId, {
                     coordinates: {
                         latitude: Number(values.latitude),
                         longitude: Number(values.longitude)
@@ -119,7 +159,6 @@ const AdminOrganization: React.FC = () => {
             } else {
                 // Create new location using POST API
                 await setLocation({
-                    organization_id: organizationId,
                     coordinates: {
                         latitude: Number(values.latitude),
                         longitude: Number(values.longitude)
@@ -128,19 +167,8 @@ const AdminOrganization: React.FC = () => {
                 });
             }
 
-            // Fetch the updated location data from the server
-            const updatedLocationData = await getLocation(organizationId);
-            
-            if (updatedLocationData && updatedLocationData.length > 0) {
-                const locationInfo = updatedLocationData[0];
-                setLocationExists(true);
-                setLocationData({
-                    longitude: locationInfo.coordinates?.longitude?.toString() || '',
-                    latitude: locationInfo.coordinates?.latitude?.toString() || '',
-                    radius: locationInfo.radius?.toString() || '',
-                    id: locationInfo._id || locationInfo.id
-                });
-            }
+            // Refresh the location data in Redux store
+            await dispatch(fetchOrganizationLocation()).unwrap();
 
             Swal.fire({
                 title: 'Success!',
@@ -342,7 +370,7 @@ const AdminOrganization: React.FC = () => {
                                         </button>
                                     </div>
                                     <Formik
-                                        key={locationData ? 'edit-form' : 'new-form'}
+                                        key={organizationLocation?._id || 'new-form'}
                                         initialValues={initialValues}
                                         validationSchema={LocationSchema}
                                         onSubmit={handleSubmit}

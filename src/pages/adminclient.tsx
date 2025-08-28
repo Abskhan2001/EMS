@@ -6,30 +6,27 @@ import React, {
   // useContext,
 } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import { useDispatch, useSelector } from 'react-redux';
 import AddClientModal from '../components/addclientModal';
 // import { useUser } from '../contexts/UserContext';
 // import { AttendanceContext } from './AttendanceContext';
 import TaskBoardAdmin from '../components/TaskBoardAdmin';
 import Employeeprofile from './Employeeprofile';
-import { 
-  getClientsByOrganization, 
-  deleteEmployee 
+import {
+  getClientsByOrganization,
+  deleteEmployee
 } from '../services/adminService';
+import {
+  fetchClients,
+  addClient as addClientToStore,
+  removeClient as removeClientFromStore,
+  setCurrentClient,
+  Client
+} from '../slices/clientsSlice';
+import { RootState, AppDispatch } from '../store';
 import Swal from 'sweetalert2';
 
-interface Client {
-  _id: string;
-  full_name: string;
-  email: string;
-  phone?: string;
-  location?: string;
-  joining_date?: string;
-  profile_image?: string;
-  role: string;
-  organization_id: string;
-  projects: Project[];
-  created_at: string;
-}
+// Using Client interface from Redux slice
 
 interface Project {
   _id: string;
@@ -39,9 +36,10 @@ interface Project {
 }
 
 const AdminClient: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { clients, loading, error, currentClient } = useSelector((state: RootState) => state.clients);
+
   const [modalOpen, setModalOpen] = useState(false);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -50,7 +48,6 @@ const AdminClient: React.FC = () => {
   const [clientview, setClientView] = useState<'generalview' | 'detailview'>(
     'generalview'
   );
-  const [currentClient, setCurrentClient] = useState<Client | null>(null);
   const [clientId, setClientId] = useState<string>('');
 
   // Task board state for project navigation
@@ -60,7 +57,7 @@ const AdminClient: React.FC = () => {
 
   // Navigation handlers
   const handleClientClick = (client: Client) => {
-    setCurrentClient(client);
+    dispatch(setCurrentClient(client));
     setClientId(client._id);
     setClientView('detailview');
   };
@@ -80,56 +77,22 @@ const AdminClient: React.FC = () => {
       });
     }
   };
- const organizationId= localStorage.getItem("organizationId");
-  // Fetch clients (filtering employees with role 'client')
-  const fetchClients = useCallback(async () => {
-    // Don't fetch if no organization_id
- 
+  // Fetch clients using Redux
+  const fetchClientsData = useCallback(async () => {
     try {
-      console.log('Starting to fetch clients for organization:', organizationId);
-      setLoading(true);
-
-      // Using existing getEmployeesByOrganization and filter for clients
-      const employeesData = await getClientsByOrganization(organizationId);
-      console.log('Employees data received:', employeesData);
-      
-      // Filter only clients
-      const clientsData = employeesData.filter((employee: any) => 
-        employee.role === 'client' || employee.role === 'Client'
-      );
-      console.log('Filtered clients:', clientsData);
-      
-      // Transform the data to match our interface
-      const transformedClients: Client[] = clientsData.map((client: any) => ({
-        _id: client._id,
-        full_name: client.full_name || client.fullName || 'Unknown',
-        email: client.email || '',
-        phone: client.phone || client.phone_number || client.phoneNumber,
-        location: client.location,
-        joining_date: client.hireDate,
-        profile_image: client.profile_image || client.profileImage,
-        role: client.role,
-        organization_id: client.organization_id,
-        created_at: client.created_at || client.createdAt,
-        projects: client.projects || [],
-      }));
-
-      setClients(transformedClients);
-      console.log('Clients set successfully:', transformedClients.length, 'clients');
+      console.log('Fetching clients using Redux...');
+      await dispatch(fetchClients()).unwrap();
+      console.log('Clients fetched successfully via Redux');
     } catch (error) {
-      console.error('Error fetching clients:', error);
+      console.error('Error fetching clients via Redux:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error!',
         text: 'Failed to load clients. Please try again.',
         confirmButtonColor: '#d33'
       });
-      setClients([]); // Set empty array on error
-    } finally {
-      console.log('Setting loading to false');
-      setLoading(false);
     }
-  }, [organizationId]);
+  }, [dispatch]);
 
   // Delete client with optimistic update
   const handleDeleteClient = useCallback(
@@ -152,16 +115,15 @@ const AdminClient: React.FC = () => {
 
       setIsDeleting(clientId);
 
-      // Optimistic update - remove client from UI immediately
-      const previousClients = [...clients];
-      setClients((prev) => prev.filter((client) => client._id !== clientId));
-
       try {
         // Using existing deleteEmployee service (since clients are stored as employees with role 'client')
         await deleteEmployee(clientId);
-        
+
+        // Update Redux store
+        dispatch(removeClientFromStore(clientId));
+
         console.log('Client deleted successfully');
-        
+
         // Success message
         Swal.fire({
           icon: 'success',
@@ -171,9 +133,7 @@ const AdminClient: React.FC = () => {
         });
       } catch (error) {
         console.error('Delete error:', error);
-        // Revert optimistic update on error
-        setClients(previousClients);
-        
+
         // Error message
         Swal.fire({
           icon: 'error',
@@ -197,10 +157,10 @@ const AdminClient: React.FC = () => {
     const lowerSearchTerm = searchTerm.toLowerCase();
     return clients.filter(
       (client) =>
-        client.full_name.toLowerCase().includes(lowerSearchTerm) ||
+        client.fullName.toLowerCase().includes(lowerSearchTerm) ||
         client.email.toLowerCase().includes(lowerSearchTerm) ||
-        (client.phone && client.phone.toLowerCase().includes(lowerSearchTerm)) ||
-        (client.location && client.location.toLowerCase().includes(lowerSearchTerm))
+        (client.phoneNumber && client.phoneNumber.toLowerCase().includes(lowerSearchTerm)) ||
+        (client.companyName && client.companyName.toLowerCase().includes(lowerSearchTerm))
     );
   }, [clients, searchTerm]);
 
@@ -209,27 +169,26 @@ const AdminClient: React.FC = () => {
     async (newClient?: any) => {
       try {
         console.log('Client added, refetching clients...');
-        
+
         // Add the new client to the list immediately if provided
         if (newClient && newClient._id) {
           const transformedClient: Client = {
             _id: newClient._id,
-            full_name: newClient.full_name || 'Unknown',
+            fullName: newClient.full_name || newClient.fullName || 'Unknown',
             email: newClient.email || '',
-            phone: newClient.phone || newClient.phone_number ||  newClient.phoneNumber,
-            location: newClient.location,
-            joining_date: newClient.joining_date,
-            profile_image: newClient.profile_image,
-            role: newClient.role || 'client',
-            organization_id: newClient.organization_id,
-            created_at: newClient.created_at || new Date().toISOString(),
-            projects: newClient.projects || [],
+            phoneNumber: newClient.phone || newClient.phone_number || newClient.phoneNumber,
+            role: 'client' as const,
+            organizationId: newClient.organization_id || newClient.organizationId,
+            profilePicture: newClient.profile_image || newClient.profilePicture,
+            createdAt: newClient.created_at || newClient.createdAt || new Date().toISOString(),
+            companyName: newClient.companyName,
+            isActive: true,
           };
-          
-          setClients(prev => [transformedClient, ...prev]);
+
+          dispatch(addClientToStore(transformedClient));
         } else {
           // Fallback: refetch all clients if no new client data
-          await fetchClients();
+          await dispatch(fetchClients()).unwrap();
         }
         
         // Show success message
@@ -255,16 +214,11 @@ const AdminClient: React.FC = () => {
     [fetchClients]
   );
 
-  // Load clients on component mount and when organization changes
+  // Load clients on component mount
   useEffect(() => {
-    console.log('useEffect triggered, userProfile?.organizationId:', organizationId);
-    if (organizationId) {
-      fetchClients();
-    } else {
-      console.log('No organizationId found, setting loading to false');
-      setLoading(false);
-    }
-  }, [organizationId, fetchClients]);
+    console.log('useEffect triggered, fetching clients via Redux...');
+    dispatch(fetchClients());
+  }, [dispatch]);
 
   // Format date helper
   const formatDate = (dateString: string) => {
@@ -396,11 +350,11 @@ const AdminClient: React.FC = () => {
                         {/* Client */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            {client.profile_image ? (
+                            {client.profilePicture ? (
                               <img
                                 className="h-10 w-10 rounded-full object-cover mr-4"
-                                src={client.profile_image}
-                                alt={client.full_name}
+                                src={client.profilePicture}
+                                alt={client.fullName}
                                 onError={(e) => {
                                   // Fallback to initials if image fails to load
                                   e.currentTarget.style.display = 'none';
@@ -408,14 +362,14 @@ const AdminClient: React.FC = () => {
                                 }}
                               />
                             ) : null}
-                            <div 
-                              className={`flex-shrink-0 h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold uppercase mr-4 ${client.profile_image ? 'hidden' : ''}`}
+                            <div
+                              className={`flex-shrink-0 h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold uppercase mr-4 ${client.profilePicture ? 'hidden' : ''}`}
                             >
-                              {client.full_name.charAt(0)}
+                              {client.fullName.charAt(0)}
                             </div>
                             <div>
                               <div className="text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors">
-                                {client.full_name}
+                                {client.fullName}
                               </div>
                               <div className="text-sm text-gray-500">
                                 {client.email}
@@ -427,13 +381,13 @@ const AdminClient: React.FC = () => {
                         {/* Contact Info */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {client.phone && (
-                              <div className="text-xs text-gray-600">{client.phone}</div>
+                            {client.phoneNumber && (
+                              <div className="text-xs text-gray-600">{client.phoneNumber}</div>
                             )}
-                            {client.location && (
-                              <div className="text-xs text-gray-600">{client.location}</div>
+                            {client.companyName && (
+                              <div className="text-xs text-gray-600">{client.companyName}</div>
                             )}
-                            {!client.phone && !client.location && (
+                            {!client.phoneNumber && !client.companyName && (
                               <span className="text-xs text-gray-400">No contact info</span>
                             )}
                           </div>
@@ -473,11 +427,10 @@ const AdminClient: React.FC = () => {
 
                         {/* Joined Date */}
                         <td className="px-6 py-4 whitespace-nowrap">
-  <div className="text-sm text-gray-900">
-    {client.joining_date ? formatDate(client.joining_date) : 
-     client.created_at ? formatDate(client.created_at) : 'N/A'}
-  </div>
-</td>
+                          <div className="text-sm text-gray-900">
+                            {client.createdAt ? formatDate(client.createdAt) : 'N/A'}
+                          </div>
+                        </td>
 
 
                         {/* Actions */}

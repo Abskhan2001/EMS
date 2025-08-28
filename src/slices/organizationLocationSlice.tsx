@@ -77,7 +77,33 @@ export const fetchOrganizationLocation = createAsyncThunk(
       }
 
       const locationData = await getLocation();
-      return locationData;
+
+      // Transform the API response - it returns an array, we need the first item
+      if (locationData && Array.isArray(locationData) && locationData.length > 0) {
+        const location = locationData[0];
+        return {
+          _id: location._id,
+          id: location.id || location._id,
+          coordinates: {
+            latitude: location.coordinates?.latitude || 0,
+            longitude: location.coordinates?.longitude || 0,
+          },
+          radius: location.radius || 0,
+          name: location.name,
+          address: location.address,
+          isActive: location.isActive !== false,
+          workingHours: location.workingHours || { start: "09:00", end: "17:00" },
+          contactInfo: location.contactInfo,
+          metadata: location.metadata,
+          organizationId: typeof location.organizationId === 'string'
+            ? location.organizationId
+            : location.organizationId?._id || location.organizationId?.id,
+          createdAt: location.createdAt,
+          updatedAt: location.updatedAt,
+        };
+      }
+
+      return null;
     } catch (error: any) {
       console.error('Error in fetchOrganizationLocation:', error);
       return rejectWithValue(error.message || 'Failed to fetch organization location');
