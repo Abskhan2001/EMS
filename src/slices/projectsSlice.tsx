@@ -76,10 +76,10 @@ export interface Project {
 export interface CreateProjectData {
   name: string;
   description?: string;
-  projectManager?: string;
-  projectClient?: string;
+  projectManager?: string | null;
+  projectClient?: string | null;
   projectType: 'frontend' | 'backend' | 'fullstack';
-  teamMembers?: string[];
+  teamMembers?: { userId: string }[];
   startDate?: string;
   endDate?: string;
   deadline?: string;

@@ -28,12 +28,10 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
     name: '',
     description: '',
     projectType: 'fullstack' as 'frontend' | 'backend' | 'fullstack',
-    projectManager: '',
-    projectClient: '',
+    projectManager: '' as string | null,
+    projectClient: '' as string | null,
     teamMembers: [] as Array<{userId: string}>,
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
-   
-    
   });
 
   const [selectedManager, setSelectedManager] = useState<Employee | null>(null);
@@ -73,21 +71,21 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       emp.role?.toLowerCase() === 'manager'
     );
 
-    console.log('Filtered managers:', filtered.map(m => ({ name: m.fullName, role: m.role })));
     return filtered;
   }, [employees]);
 
-  // Filter developers - only show users with 'employee' role
+  // Filter developers - show both employees and managers
   const developers = React.useMemo(() => {
     if (!employees || employees.length === 0) return [];
 
     const filtered = employees.filter(emp =>
       emp.role === 'employee' ||
+      emp.role === 'manager' ||
       emp.role?.toLowerCase() === 'employee' ||
+      emp.role?.toLowerCase() === 'manager' ||
       emp.role?.toLowerCase().includes('developer')
     );
 
-    console.log('Filtered developers:', filtered.map(d => ({ name: d.fullName, role: d.role })));
     return filtered;
   }, [employees]);
 
@@ -138,12 +136,10 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         name: project.name || '',
         description: project.description || '',
         projectType: project.projectType || 'fullstack',
-        projectManager: project.projectManager?._id || '',
-        projectClient: project.projectClient?._id || '',
+        projectManager: project.projectManager?._id || null,
+        projectClient: project.projectClient?._id || null,
         teamMembers: project.teamMembers?.map((tm: any) => tm.userId?._id || tm._id) || [],
         priority: project.priority || 'medium',
-      
-        
       });
 
       // Set selected manager (clear if no manager assigned)
@@ -178,12 +174,10 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         name: '',
         description: '',
         projectType: 'fullstack',
-        projectManager: '',
-        projectClient: '',
+        projectManager: null,
+        projectClient: null,
         teamMembers: [],
         priority: 'medium',
-       
-        
       });
       setSelectedManager(null);
       setSelectedClient(null);
@@ -235,15 +229,13 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   };
 
   const handleRemoveManager = () => {
-    console.log('Removing manager');
     setSelectedManager(null);
-    setFormData(prev => ({ ...prev, projectManager: '' }));
+    setFormData(prev => ({ ...prev, projectManager: null }));
   };
 
   const handleRemoveClient = () => {
-    console.log('Removing client');
     setSelectedClient(null);
-    setFormData(prev => ({ ...prev, projectClient: '' }));
+    setFormData(prev => ({ ...prev, projectClient: null }));
   };
 
   const handleRemoveDeveloper = (developerId: string) => {
@@ -276,9 +268,9 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
         name: formData.name,
         description: formData.description,
         projectType: formData.projectType,
-        projectManager: formData.projectManager || undefined,
-        projectClient: formData.projectClient || undefined,
-        teamMembers: selectedDevelopers.map(dev => dev._id),
+        projectManager: formData.projectManager && formData.projectManager.trim() !== '' ? formData.projectManager : null,
+        projectClient: formData.projectClient && formData.projectClient.trim() !== '' ? formData.projectClient : null,
+        teamMembers: selectedDevelopers.map(dev => ({ userId: dev._id })),
         priority: formData.priority,
       };
 

@@ -261,10 +261,10 @@ export const getProjectById = async (projectId: string) => {
 export const createProject = async (projectData: {
   name: string;
   description?: string;
-  projectManager?: string;
-  projectClient?: string;
+  projectManager?: string | null;
+  projectClient?: string | null;
   projectType: 'frontend' | 'backend' | 'fullstack';
-  teamMembers?: string[];
+  teamMembers?: { userId: string }[];
   startDate?: string;
   endDate?: string;
   deadline?: string;
