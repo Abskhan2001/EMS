@@ -89,12 +89,13 @@ export const getLocation = async () => {
     }
 };
 
-export const setLocation = async (locationData: { 
+export const setLocation = async (locationData: {
     coordinates: {
-        latitude: number; 
+        latitude: number;
         longitude: number;
     };
     radius: number;
+    workingHours: { startHour: number; endHour: number; reliefMinutes: number };
 }) => {
     const token = getToken();
     try {
@@ -111,12 +112,13 @@ export const setLocation = async (locationData: {
     }
 };
 
-export const updateLocation = async (locationId: string, locationData: { 
+export const updateLocation = async (locationId: string, locationData: {
     coordinates: {
-        latitude: number; 
+        latitude: number;
         longitude: number;
     };
     radius: number;
+    workingHours: { startHour: number; endHour: number; reliefMinutes: number };
 }) => {
     const token = getToken();
     try {

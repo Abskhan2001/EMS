@@ -1063,7 +1063,7 @@ const Attendance: React.FC = () => {
       dispatch(setCheckIn(null));
       setWorkMode(null);
       setAttendanceId(null);
-      setalreadycheckedin(false); // Allow user to check in again
+      setalreadycheckedin(true); // Daily limit reached after one complete session (check-in + check-out)
 
       console.log("Today's Date:", todayDate);
 

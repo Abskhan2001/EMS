@@ -14,9 +14,13 @@ export interface OrganizationLocation {
   address?: string;
   isActive: boolean;
   workingHours: {
-    start: string;
-    end: string;
+    start: string; // legacy
+    end: string;   // legacy
+    startHour: number;
+    endHour: number;
+    reliefMinutes: number; // grace period in minutes
   };
+
   contactInfo?: {
     phone?: string;
     email?: string;

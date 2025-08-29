@@ -32,7 +32,7 @@ const AdminOrganization: React.FC = () => {
         const fetchOrganizationData = async () => {
             // Get organization ID from localStorage
             const organizationId = localStorage.getItem('organizationId');
-            
+
             if (!organizationId) {
                 Swal.fire({
                     title: 'Error!',
@@ -112,14 +112,24 @@ const AdminOrganization: React.FC = () => {
         radius: Yup.number()
             .required('Radius is required')
             .typeError('Radius must be a number')
-            .min(0, 'Radius must be a positive number')
+            .min(0, 'Radius must be a positive number'),
+        startTime: Yup.string()
+            .required('Start time is required')
+            .matches(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM format'),
+        endTime: Yup.string()
+            .required('End time is required')
+            .matches(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM format'),
+        reliefMinutes: Yup.number().required('Relief minutes required').min(0)
     });
 
     // Use Redux state for initial values if available
     const initialValues = {
         longitude: organizationLocation?.coordinates?.longitude?.toString() || locationData?.longitude || '',
         latitude: organizationLocation?.coordinates?.latitude?.toString() || locationData?.latitude || '',
-        radius: organizationLocation?.radius?.toString() || locationData?.radius || ''
+        radius: organizationLocation?.radius?.toString() || locationData?.radius || '',
+        startTime: organizationLocation?.workingHours?.start || '09:00',
+        endTime: organizationLocation?.workingHours?.end || '17:00',
+        reliefMinutes: organizationLocation?.workingHours?.reliefMinutes?.toString() || '20'
     };
 
     // Debug logging
@@ -128,10 +138,10 @@ const AdminOrganization: React.FC = () => {
     console.log('Initial values:', initialValues);
     console.log('Location exists:', locationExists);
 
-    const handleSubmit = async (values: { longitude: string | number; latitude: string | number; radius: string | number }) => {
+    const handleSubmit = async (values: { longitude: string | number; latitude: string | number; radius: string | number; startTime: string; endTime: string; reliefMinutes: string | number; }) => {
         // Get organization ID from localStorage
         const organizationId = localStorage.getItem('organizationId');
-        
+
         if (!organizationId) {
             Swal.fire({
                 title: 'Error!',
@@ -154,7 +164,14 @@ const AdminOrganization: React.FC = () => {
                         latitude: Number(values.latitude),
                         longitude: Number(values.longitude)
                     },
-                    radius: Number(values.radius)
+                    radius: Number(values.radius),
+                    workingHours: {
+                        start: values.startTime,
+                        end: values.endTime,
+                        startHour: Number(values.startTime.split(':')[0] || 9),
+                        endHour: Number(values.endTime.split(':')[0] || 17),
+                        reliefMinutes: Number(values.reliefMinutes)
+                    }
                 });
             } else {
                 // Create new location using POST API
@@ -163,7 +180,14 @@ const AdminOrganization: React.FC = () => {
                         latitude: Number(values.latitude),
                         longitude: Number(values.longitude)
                     },
-                    radius: Number(values.radius)
+                    radius: Number(values.radius),
+                    workingHours: {
+                        start: values.startTime,
+                        end: values.endTime,
+                        startHour: Number(values.startTime.split(':')[0] || 9),
+                        endHour: Number(values.endTime.split(':')[0] || 17),
+                        reliefMinutes: Number(values.reliefMinutes)
+                    }
                 });
             }
 
@@ -228,7 +252,7 @@ const AdminOrganization: React.FC = () => {
             (error) => {
                 setGettingLocation(false);
                 let errorMessage = 'An unknown error occurred while getting location.';
-                
+
                 switch (error.code) {
                     case error.PERMISSION_DENIED:
                         errorMessage = 'Location permission denied. Please enable location access.';
@@ -240,7 +264,7 @@ const AdminOrganization: React.FC = () => {
                         errorMessage = 'Location request timed out.';
                         break;
                 }
-                
+
                 Swal.fire({
                     title: 'Error!',
                     text: errorMessage,
@@ -312,6 +336,7 @@ const AdminOrganization: React.FC = () => {
                     <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                         <div className="flex items-center">
                             <div className="p-3 rounded-full bg-blue-100 mr-4">
+
                                 <FolderIcon className="h-6 w-6 text-blue-600" />
                             </div>
                             <div>
@@ -438,6 +463,23 @@ const AdminOrganization: React.FC = () => {
                                                     />
                                                     <ErrorMessage name="radius" component="div" className="text-red-500 text-sm mt-1" />
                                                 </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                                                        <Field name="startTime" type="time" className="mt-1 block w-full border-gray-300 rounded-md" />
+                                                        <ErrorMessage name="startTime" component="div" className="text-red-500 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                                                        <Field name="endTime" type="time" className="mt-1 block w-full border-gray-300 rounded-md" />
+                                                        <ErrorMessage name="endTime" component="div" className="text-red-500 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">Relief Minutes</label>
+                                                        <Field name="reliefMinutes" type="number" min="0" className="mt-1 block w-full border-gray-300 rounded-md" />
+                                                        <ErrorMessage name="reliefMinutes" component="div" className="text-red-500 text-sm" />
+                                                    </div>
+                                                </div>
                                                 <div className="flex justify-end gap-3">
                                                     <button
                                                         type="button"
@@ -449,10 +491,7 @@ const AdminOrganization: React.FC = () => {
                                                     <button
                                                         type="submit"
                                                         disabled={loading || gettingLocation}
-                                                        className={`px-4 py-2 rounded-md bg-purple-600 text-white font-semibold ${loading || gettingLocation
-                                                            ? 'opacity-70 cursor-not-allowed'
-                                                            : 'hover:bg-purple-700'
-                                                            }`}
+                                                        className={`px-4 py-2 rounded-md bg-purple-600 text-white font-semibold ${loading || gettingLocation ? 'opacity-70 cursor-not-allowed' : 'hover:bg-purple-700'}`}
                                                     >
                                                         {loading ? 'Saving...' : (locationExists ? 'Update Location' : 'Set Location')}
                                                     </button>
