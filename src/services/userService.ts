@@ -385,9 +385,234 @@ export const attendanceWorkflowService = {
   },
 };
 
+// Leave Request Types
+export interface LeaveRequestData {
+  leaveType: string;
+  startDate: string;
+  endDate?: string;
+  leaveDates?: string[];
+  reason: string;
+  handoverTo?: string;
+  handoverNotes?: string;
+  emergencyContact?: {
+    name: string;
+    phone: string;
+    relationship: string;
+  };
+  notifyManager?: boolean;
+  notifyHR?: boolean;
+}
+
+export interface LeaveRequestResponse {
+  success: boolean;
+  message: string;
+  leaveRequest: {
+    _id: string;
+    userId: string;
+    organizationId: string;
+    leaveType: string;
+    startDate: string;
+    endDate?: string;
+    leaveDates?: string[];
+    reason: string;
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+    totalDays?: number;
+    workingDays?: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export interface Holiday {
+  _id: string;
+  name: string;
+  description?: string;
+  organizationId: string;
+  date: string;
+  endDate?: string;
+  type: 'national' | 'religious' | 'cultural' | 'company' | 'regional' | 'optional';
+  category: 'public' | 'bank' | 'federal' | 'state' | 'local' | 'company_specific';
+  isRecurring: boolean;
+  isActive: boolean;
+  isOptional: boolean;
+  isPaid: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Leave Request Services
+export const leaveRequestService = {
+  // Create leave request
+  createLeaveRequest: async (data: LeaveRequestData): Promise<LeaveRequestResponse> => {
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/leaves`,
+        {
+          method: 'POST',
+          headers: createAuthHeaders(),
+          body: JSON.stringify(data),
+        }
+      );
+      return handleResponse(response);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to create leave request');
+    }
+  },
+
+  // Get user's leave requests
+  getLeaveRequests: async (params?: {
+    status?: 'pending' | 'approved' | 'rejected' | 'cancelled';
+    leaveType?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    leaveRequests: LeaveRequestResponse['leaveRequest'][];
+    pagination?: any;
+  }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined) {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+
+      const url = `${API_BASE_URL}/leaves${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await fetchWithTimeout(url, {
+        method: 'GET',
+        headers: createAuthHeaders(),
+      });
+      return handleResponse(response);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch leave requests');
+    }
+  },
+
+  // Get holidays
+  getHolidays: async (year?: number): Promise<{
+    success: boolean;
+    holidays: Holiday[];
+  }> => {
+    try {
+      const queryParams = year ? `?year=${year}` : '';
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/holidays${queryParams}`,
+        {
+          method: 'GET',
+          headers: createAuthHeaders(),
+        }
+      );
+      return handleResponse(response);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch holidays');
+    }
+  },
+
+  // Cancel leave request
+  cancelLeaveRequest: async (leaveId: string, reason?: string): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/leaves/${leaveId}/cancel`,
+        {
+          method: 'PATCH',
+          headers: createAuthHeaders(),
+          body: JSON.stringify({ reason }),
+        }
+      );
+      return handleResponse(response);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to cancel leave request');
+    }
+  },
+
+  // Update leave request
+  updateLeaveRequest: async (leaveId: string, data: Partial<LeaveRequestData>): Promise<LeaveRequestResponse> => {
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/leaves/${leaveId}`,
+        {
+          method: 'PUT',
+          headers: createAuthHeaders(),
+          body: JSON.stringify(data),
+        }
+      );
+      return handleResponse(response);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to update leave request');
+    }
+  },
+
+  // Delete leave request
+  deleteLeaveRequest: async (leaveId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/leaves/${leaveId}`,
+        {
+          method: 'DELETE',
+          headers: createAuthHeaders(),
+        }
+      );
+      return handleResponse(response);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to delete leave request');
+    }
+  },
+
+  // Get leave balance
+  getLeaveBalance: async (): Promise<{
+    success: boolean;
+    balance: any;
+  }> => {
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/leaves/balance/current`,
+        {
+          method: 'GET',
+          headers: createAuthHeaders(),
+        }
+      );
+      return handleResponse(response);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch leave balance');
+    }
+  },
+
+  // Get leave statistics
+  getLeaveStats: async (year?: number): Promise<{
+    success: boolean;
+    stats: any;
+  }> => {
+    try {
+      const queryParams = year ? `?year=${year}` : '';
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/leaves/stats/summary${queryParams}`,
+        {
+          method: 'GET',
+          headers: createAuthHeaders(),
+        }
+      );
+      return handleResponse(response);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to fetch leave statistics');
+    }
+  },
+};
+
 // Export all services
 export default {
   location: locationService,
   attendance: attendanceService,
   workflow: attendanceWorkflowService,
+  leave: leaveRequestService,
 };

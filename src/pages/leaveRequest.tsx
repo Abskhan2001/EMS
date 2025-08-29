@@ -4,54 +4,38 @@
 // ...existing code...
 // ...existing code...
 
-import { useUser } from "@/contexts/UserContext";
-import { supabase } from "@/lib/supabase";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useAppDispatch, useAppSelector } from '../hooks/redux.CustomHooks';
+import { createLeaveRequest, fetchHolidays } from '../slices/leaveSlice';
 
 interface LeaveRequestProps {
   setActiveComponent: React.Dispatch<React.SetStateAction<string>>;
 }
 
-interface Holiday {
-  id: string;
-  dates: string[];
-  name: string;
-  organization_id: string;
-}
+// Holiday interface is imported from leaveService
 
 const LeaveRequest: React.FC<LeaveRequestProps> = ({ setActiveComponent }) => {
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
+  const { holidays, loading } = useAppSelector((state) => state.leave);
+
   const [leaveType, setLeaveType] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-  const { userProfile } = useUser();
   const [fullname, setFullname] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [isloading, setIsLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  // Fetch holidays from Supabase
+  // Fetch holidays using Redux
   useEffect(() => {
-    const fetchHolidays = async () => {
-      if (userProfile?.organization_id) {
-        const { data, error } = await supabase
-          .from('holidays')
-          .select('*')
-          .eq('organization_id', userProfile.organization_id);
-
-        if (data && !error) {
-          console.log('Fetched holidays:', data);
-          setHolidays(data);
-        } else if (error) {
-          console.error('Error fetching holidays:', error);
-        }
-      }
-    };
-    fetchHolidays();
-  }, [userProfile?.organization_id]);
+    if (user?.organizationId) {
+      // Fetch holidays using Redux action
+      dispatch(fetchHolidays(new Date().getFullYear()));
+    }
+  }, [user?.organizationId, dispatch]);
 
   // Close calendar on outside click
   useEffect(() => {
@@ -85,54 +69,40 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ setActiveComponent }) => {
   const isHoliday = (date: Date) => {
     const dateStr = formatDateString(date);
 
-    // Debug: Check if we're looking for August 14th
-    if (dateStr === '2024-08-14') {
-      console.log('Checking August 14th for holiday');
-      console.log('Available holidays:', holidays);
-      console.log('Date string to match:', dateStr);
+    if (!holidays || holidays.length === 0) {
+      return false;
     }
 
     const result = holidays.some(holiday => {
-      return holiday.dates.some(holidayDate => {
-        // Handle different date formats that might be stored in the database
-        let hDate;
-        if (holidayDate.includes('T')) {
-          hDate = new Date(holidayDate);
-        } else {
-          hDate = new Date(holidayDate + 'T00:00:00');
-        }
-        const formattedHolidayDate = formatDateString(hDate);
-
-        // Debug for August 14th
-        if (dateStr === '2024-08-14') {
-          console.log('Comparing with holiday date:', holidayDate, '-> formatted:', formattedHolidayDate);
-        }
-
-        return formattedHolidayDate === dateStr;
-      });
+      // Handle different date formats that might be stored in the database
+      let hDate;
+      if (holiday.date.includes('T')) {
+        // ISO format with time
+        hDate = new Date(holiday.date).toISOString().split('T')[0];
+      } else {
+        // Assume it's already in YYYY-MM-DD format
+        hDate = holiday.date;
+      }
+      return hDate === dateStr;
     });
-
-    if (dateStr === '2024-08-14') {
-      console.log('August 14th is holiday:', result);
-    }
 
     return result;
   };
 
   const getHolidayName = (date: Date) => {
     const dateStr = formatDateString(date);
-    const holiday = holidays.find(h =>
-      h.dates.some(holidayDate => {
-        // Handle different date formats that might be stored in the database
-        let hDate;
-        if (holidayDate.includes('T')) {
-          hDate = new Date(holidayDate);
-        } else {
-          hDate = new Date(holidayDate + 'T00:00:00');
-        }
-        return formatDateString(hDate) === dateStr;
-      })
-    );
+    const holiday = holidays.find(h => {
+      // Handle different date formats that might be stored in the database
+      let hDate;
+      if (h.date.includes('T')) {
+        // ISO format with time
+        hDate = new Date(h.date).toISOString().split('T')[0];
+      } else {
+        // Assume it's already in YYYY-MM-DD format
+        hDate = h.date;
+      }
+      return hDate === dateStr;
+    });
     return holiday?.name || '';
   };
 
@@ -262,49 +232,54 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ setActiveComponent }) => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    setIsLoading(true);
     e.preventDefault();
 
     if (!fullname || !leaveType || !description || selectedDates.length === 0) {
       alert("Please fill out all fields and select at least one date.");
-      setIsLoading(false);
       return;
     }
 
-    const userId = localStorage.getItem("user_id");
+    if (!user) {
+      alert("User not authenticated. Please log in again.");
+      return;
+    }
 
     try {
-      const leaveRequests = selectedDates.map(date => ({
-        leave_type: leaveType,
-        user_id: userId,
-        description: description,
-        start_date: new Date().toISOString(),
-        leave_date: date,
-        full_name: fullname,
-        user_email: localStorage.getItem('user_email'),
-        organization_id: userProfile?.organization_id
-      }));
+      // Create leave request data
+      // Sort selected dates to get proper start and end dates
+      const sortedDates = [...selectedDates].sort();
+      const startDate = sortedDates[0];
+      const endDate = sortedDates.length > 1 ? sortedDates[sortedDates.length - 1] : undefined;
 
-      const { data, error } = await supabase
-        .from("leave_requests")
-        .insert(leaveRequests);
+      const leaveRequestData = {
+        leaveType: leaveType,
+        startDate: startDate,
+        endDate: endDate, // Only set if multiple dates selected
+        leaveDates: selectedDates, // All selected dates
+        reason: description,
+        notifyManager: true,
+        notifyHR: true
+      };
 
-      if (error) {
-        console.error('Error inserting data: ', error.message);
-        alert(
-          'An error occurred while submitting your request. Please try again.'
-        );
-      } else {
+      // Dispatch Redux action to create leave request
+      const result = await dispatch(createLeaveRequest(leaveRequestData));
+
+      if (createLeaveRequest.fulfilled.match(result)) {
+        alert(`Leave request submitted successfully for ${selectedDates.length} date(s)!`);
+
+        // Reset form
         setLeaveType("");
         setDescription("");
-        setFullname("");
         setSelectedDates([]);
-        alert(`Leave requests submitted successfully for ${selectedDates.length} date(s)!`);
+        setFullname("");
+        setEmail("");
+      } else {
+        const errorMessage = result.payload as string || "Failed to submit leave request";
+        alert(`Error: ${errorMessage}`);
       }
     } catch (error) {
-      console.error("An error occurred:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Error submitting leave request:", error);
+      alert("Error submitting leave request. Please try again.");
     }
   };
 
@@ -433,10 +408,10 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ setActiveComponent }) => {
           <div className="flex justify-end gap-6 mt-6 mr-4">
             <button
               type="submit"
-              disabled={isloading}
+              disabled={loading}
               className="bg-[#9A00FF] text-white px-6 py-2 rounded-lg shadow hover:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isloading ? 'Submitting...' : 'Submit Request'}
+              {loading ? 'Submitting...' : 'Submit Request'}
             </button>
           </div>
         </form>
