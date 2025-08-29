@@ -48,14 +48,26 @@ import { Content } from 'vaul';
 const GEOFENCE_RADIUS = 0.15; // km - increased from 0.15km to 1km for better tolerance
 
 interface AttendanceRecord {
+  _id: string;
   id: string;
-  check_in: string;
-  check_out: string | null;
-  work_mode: 'on_site' | 'remote';
+  checkIn: string;
+  checkOut: string | null;
+  workMode: 'on_site' | 'remote';
   status: string;
+  workingHours?: number;
+  totalHours?: number;
+  breakTime?: number; // in minutes
+  coordinates?: {
+    checkIn: {
+      latitude: number;
+      longitude: number;
+    };
+    checkOut?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
   tasks?: DailyTask[];
-  latitude?: number;
-  longitude?: number;
 }
 
 interface BreakRecord {
@@ -655,13 +667,13 @@ const Attendance: React.FC = () => {
           // User has an active session
           dispatch(setIsCheckedIn(true));
           setAttendanceId(activeSession.id);
-          setCheckIn(activeSession.check_in);
+          dispatch(setCheckIn(activeSession.check_in));
           setalreadycheckedin(false); // Allow check-out
         } else {
           // User has completed 1 check-in for the day
           dispatch(setIsCheckedIn(false));
           setAttendanceId(null);
-          setCheckIn(null);
+          dispatch(setCheckIn(null));
           setalreadycheckedin(true); // Prevent further check-ins
         }
       } else {
@@ -672,12 +684,12 @@ const Attendance: React.FC = () => {
           // User has an active session
           dispatch(setIsCheckedIn(true));
           setAttendanceId(activeSession.id);
-          setCheckIn(activeSession.check_in);
+          dispatch(setCheckIn(activeSession.check_in));
         } else {
           // No active session and under limit - allow check-in
           dispatch(setIsCheckedIn(false));
           setAttendanceId(null);
-          setCheckIn(null);
+          dispatch(setCheckIn(null));
           setalreadycheckedin(false); // Allow check-in
         }
       }
@@ -791,89 +803,24 @@ const Attendance: React.FC = () => {
           break;
       }
 
-      // Fetch attendance records
-      const { data: records, error: recordsError } = await supabase
-        .from('attendance_logs')
-        .select('*')
-        .eq('user_id', localStorage.getItem('user_id'))
-        .gte('check_in', `${startDate}T00:00:00Z`)
-        .lt('check_in', `${endDate}T23:59:59Z`)
-        .order('check_in', { ascending: false });
+      // Fetch attendance records using backend API
+      const attendanceData = await attendanceService.getAttendanceHistory({
+        startDate: `${startDate}T00:00:00Z`,
+        endDate: `${endDate}T23:59:59Z`,
+        page: 1,
+        limit: 50
+      });
 
-      if (recordsError) throw recordsError;
+      const records = attendanceData?.attendance || [];
 
       if (records && records.length > 0) {
-        // Fetch daily tasks for all attendance records
-        const attendanceIds = records.map((record) => record.id);
-        const { data: taskData, error: tasksError } = await supabase
-          .from('daily_tasks')
-          .select('*')
-          .in('attendance_id', attendanceIds);
-
-        if (tasksError) {
-          console.error('Error fetching tasks:', tasksError);
-        }
-
-        // Map tasks to attendance records
-        const recordsWithTasks = records.map((record) => {
-          const relatedTasks =
-            taskData?.filter((task) => task.attendance_id === record.id) || [];
-          return {
-            ...record,
-            tasks: relatedTasks,
-          };
-        });
-
-        setAttendanceRecords(recordsWithTasks);
+        // Set attendance records directly (no tasks for now)
+        setAttendanceRecords(records);
 
         // Use the most recent attendance record to determine break status
         const latestRecord = records[0];
 
-        // Load break records only for the latest attendance record
-        const {
-          data: breaks,
-          error: breaksError,
-        }: { data: BreakRecord[]; error: any } = await withRetry(() =>
-          supabase
-            .from('breaks')
-            .select('*')
-            .eq('attendance_id', latestRecord.id)
-            .order('start_time', { ascending: true })
-        );
-
-        if (breaksError) throw breaksError;
-
-        const breakData: Record<string, BreakRecord[]> = {};
-        if (breaks) {
-          breakData[latestRecord.id] = breaks;
-
-          // Check the last break for this attendance record
-          const previousBreak = breaks[breaks.length - 1];
-
-          if (previousBreak) {
-            if (!previousBreak.end_time) {
-              // If the last break has no end_time, user is still on break.
-              setIsOnBreak(true);
-              setBreakTime(previousBreak.start_time); // Record when the break started
-            } else {
-              // Otherwise, user is not on break and can start another break.
-              setIsOnBreak(false);
-              setBreakTime(null);
-              // Removed setalreadybreak(true) to allow multiple breaks per day
-            }
-          } else {
-            // If no breaks exist for this attendance record, user is not on break.
-            setIsOnBreak(false);
-            setBreakTime(null);
-          }
-        } else {
-          // No break data for the latest attendance record
-          setIsOnBreak(false);
-          setBreakTime(null);
-        }
-
-        setBreakRecords(breakData);
-        setisbreak(false);
+        // Skip break loading for now (focus on attendance only)
       } else {
         // No attendance records found for the period
         setAttendanceRecords([]);
@@ -1031,9 +978,12 @@ const Attendance: React.FC = () => {
       }
 
       dispatch(setIsCheckedIn(true));
-      setCheckIn(data.check_in);
+      dispatch(setCheckIn(data.check_in));
       setWorkMode(workMode);
       setAttendanceId(data.id); // backend _id
+
+      // Refresh attendance table immediately after check-in
+      await loadAttendanceRecords();
     } catch (err) {
       setError(handleSupabaseError(err));
     } finally {
@@ -1087,7 +1037,7 @@ const Attendance: React.FC = () => {
 
         // Reset UI state properly
         dispatch(setIsCheckedIn(false));
-        setCheckIn(null);
+        dispatch(setCheckIn(null));
         setWorkMode(null);
         setAttendanceId(null);
 
@@ -1110,7 +1060,7 @@ const Attendance: React.FC = () => {
 
       // Reset all states
       dispatch(setIsCheckedIn(false));
-      setCheckIn(null);
+      dispatch(setCheckIn(null));
       setWorkMode(null);
       setAttendanceId(null);
       setalreadycheckedin(false); // Allow user to check in again
@@ -1291,10 +1241,10 @@ const Attendance: React.FC = () => {
                     Status
                   </th>
                   <th className="border p-6 border-gray-200 font-medium text-sm leading-5 text-[#344054] uppercase">
-                    Work Mode
+                    Work Mode & Location
                   </th>
                   <th className="border p-6 border-gray-200 font-medium text-sm leading-5 text-[#344054] uppercase">
-                    Today's Tasks
+                    Total Hours
                   </th>
                   <th className="border p-6 border-gray-200 font-medium text-sm leading-5 text-[#344054] uppercase">
                     Breaks
@@ -1306,14 +1256,14 @@ const Attendance: React.FC = () => {
                   attendanceRecords.map((record) => (
                     <tr key={record.id}>
                       <td className="px-6 py-4 border whitespace-nowrap tex-[#666666] text-xs leading-5 font-normal">
-                        {format(new Date(record.check_in), 'MMM d, yyyy')}
+                        {format(new Date(record.checkIn), 'MMM d, yyyy')}
                       </td>
                       <td className="px-6 py-4 border whitespace-nowrap tex-[#666666] text-xs leading-5 font-normal">
-                        {format(new Date(record.check_in), 'hh:mm a')}
+                        {format(new Date(record.checkIn), 'hh:mm a')}
                       </td>
                       <td className="px-6 py-4 border whitespace-nowrap text-xs leading-5 font-normal tex-[#666666]">
-                        {record.check_out
-                          ? format(new Date(record.check_out), 'hh:mm a')
+                        {record.checkOut
+                          ? format(new Date(record.checkOut), 'hh:mm a')
                           : '-'}
                       </td>
                       <td className="px-6 py-4 border whitespace-nowrap">
@@ -1329,95 +1279,36 @@ const Attendance: React.FC = () => {
                       <td className="px-6 py-4 border whitespace-nowrap">
                         <div className="flex flex-col space-y-1">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.work_mode === 'on_site'
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.workMode === 'on_site'
                               ? 'bg-blue-100 text-blue-800'
                               : 'bg-purple-100 text-purple-800'
                               }`}
                           >
-                            {record.work_mode}
+                            {record.workMode}
                           </span>
-                          {record.latitude && record.longitude && (
+                          {record.coordinates?.checkIn && (
                             <div className="flex items-center text-gray-500 text-xs mt-1">
                               <MapPin className="w-3 h-3 mr-1" />
                               <span className="truncate">
-                                {record.latitude.toFixed(6)},{' '}
-                                {record.longitude.toFixed(6)}
+                                {record.coordinates.checkIn.latitude.toFixed(4)},{' '}
+                                {record.coordinates.checkIn.longitude.toFixed(4)}
                               </span>
                             </div>
                           )}
                         </div>
                       </td>
-                      {/* Task column */}
-                      <td className="px-6 py-4 border">
-                        {record.tasks && record.tasks.length > 0 ? (
-                          <div className="max-h-24 overflow-y-auto text-xs leading-5 text-gray-700">
-                            <div className="flex items-start">
-                              <FileText className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                              <div>
-                                <p className="whitespace-pre-wrap line-clamp-2">
-                                  {record.tasks[0].task_description}
-                                </p>
-                                {record.tasks[0].task_description.length >
-                                  100 && (
-                                    <button
-                                      onClick={() =>
-                                        handleViewTask(
-                                          record.tasks[0].task_description
-                                        )
-                                      }
-                                      className="text-blue-600 hover:text-blue-800 text-xs mt-1"
-                                    >
-                                      Show more
-                                    </button>
-                                  )}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">
-                            No tasks recorded
-                          </span>
-                        )}
+                      <td className="px-6 py-4 border whitespace-nowrap text-xs leading-5 font-normal tex-[#666666]">
+                        {record.workingHours ? `${record.workingHours.toFixed(2)} hrs` : '-'}
                       </td>
-                      <td className="px-6 py-4 border whitespace-nowrap text-sm text-gray-500">
-                        {breakRecords[record.id]?.map((breakRecord, index) => (
-                          <div key={breakRecord.id} className="mb-1">
-                            <span className="text-gray-600">
-                              Break {index + 1}:{' '}
-                            </span>
-                            {format(
-                              new Date(breakRecord.start_time),
-                              'hh:mm a'
-                            )}
-                            {breakRecord.end_time && (
-                              <>
-                                {' '}
-                                -{' '}
-                                {format(
-                                  new Date(breakRecord.end_time),
-                                  'hh:mm a'
-                                )}
-                              </>
-                            )}
-                            {breakRecord.status && (
-                              <span
-                                className={`ml-2 px-2 text-xs rounded-full ${breakRecord.status === 'on_time'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                                  }`}
-                              >
-                                {breakRecord.status}
-                              </span>
-                            )}
-                          </div>
-                        ))}
+                      <td className="px-6 py-4 border whitespace-nowrap text-xs leading-5 font-normal tex-[#666666]">
+                        {record.breakTime ? `${(record.breakTime / 60).toFixed(1)} hrs` : '-'}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="px-6 py-10 text-center text-gray-500"
                     >
                       No attendance records found for this period
