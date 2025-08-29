@@ -42,10 +42,7 @@ import { id } from 'date-fns/locale/id';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../store';
 import toast from 'react-hot-toast';
-import {
-  fetchUserAbsentees,
-  useFetchUserAbsenteesQuery,
-} from '../services/AttendanceAPI';
+
 import { setUserAbsentCount } from '../slices/userAbsenteesSlice';
 
 // --- TaskCell Component ---
@@ -2254,20 +2251,19 @@ const EmployeeAttendanceTable = () => {
         };
       });
 
-      const monthForAttendance = new Date();
-      const ids = finalAttendanceData.map((eachUser) => eachUser.id);
-      console.log('supabase idfdnkdsjfkjasfdkjanfjkdjjjjjjjjjjjjjj', ids);
-      ids.forEach(async (userId) => {
-        try {
-          const result = await dispatch(
-            fetchUserAbsentees.initiate({ userId, monthForAttendance })
-          ).unwrap(); // ✅ use unwrap() to access data
-
-          const count = result.length || 0;
-        } catch (err) {
-          console.error('Error fetching absentee:', err);
-        }
-      });
+      // TODO: Replace with backend API call for user absentees
+      // const monthForAttendance = new Date();
+      // const ids = finalAttendanceData.map((eachUser) => eachUser.id);
+      // console.log('User IDs for absentee check:', ids);
+      // ids.forEach(async (userId) => {
+      //   try {
+      //     // Replace with backend API call
+      //     // const result = await fetchUserAbsenteesFromBackend(userId, monthForAttendance);
+      //     // const count = result.length || 0;
+      //   } catch (err) {
+      //     console.error('Error fetching absentee:', err);
+      //   }
+      // });
 
       // Set data and stats
       setAttendanceData(finalAttendanceData);

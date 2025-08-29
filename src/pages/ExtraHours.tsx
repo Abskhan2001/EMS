@@ -1,6 +1,15 @@
 import React from "react";
 import { format, parse, isAfter, isBefore, addMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { useAuthStore, useAttendanceStore } from '../lib/store';
+import { useAuthStore } from '../lib/store';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../store';
+import {
+  setCheckIn,
+  setBreakTime,
+  setWorkMode,
+  setIsCheckedIn,
+  setIsOnBreak,
+} from '../slices/attendanceSlice';
 import { supabase, withRetry, handleSupabaseError } from '../lib/supabase';
 import { Clock, Coffee, Calendar, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { useEffect, useState } from "react";
@@ -41,6 +50,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 const ExtraHours: React.FC = () => {
+     const dispatch = useDispatch<AppDispatch>();
      const user = useAuthStore((state) => state.user);
     //   const initializeUser = useAuthStore((state) => state.initializeUser); 
       // console.log("User  id 1:" , user.user.id);
@@ -50,18 +60,14 @@ const ExtraHours: React.FC = () => {
     //     initializeUser();
     //   }, [initializeUser]);
     
-      const { 
-        isCheckedIn, 
-        checkInTime, 
-        isOnBreak, 
-        breakStartTime, 
+      // Redux state
+      const {
+        isCheckedIn,
+        checkInTime,
+        isOnBreak,
+        breakStartTime,
         workMode,
-        setCheckIn,
-        setBreakTime,
-        setWorkMode,
-        setIsCheckedIn,
-        setIsOnBreak
-      } = useAttendanceStore();
+      } = useSelector((state: RootState) => state.attendance);
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);

@@ -4,19 +4,20 @@ import storage from 'redux-persist/lib/storage';
 import { combineReducers } from '@reduxjs/toolkit';
 import projectName from './slices/AdminProjectName';
 import sideBar from './slices/SideBar';
-import { AttendenceAPI } from './services/AttendanceAPI';
+
 import absenteeCountReducer from './slices/userAbsenteesSlice';
 import authReducer from './slices/authSlice';
 import employeeReducer from './slices/employeeSlice';
 import organizationLocationReducer from './slices/organizationLocationSlice';
 import clientsReducer from './slices/clientsSlice';
 import projectsReducer from './slices/projectsSlice';
+import attendanceReducer from './slices/attendanceSlice';
 
 // Persist configuration
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['auth', 'employee', 'organizationLocation', 'clients', 'projects'], // Persist auth, employee, location, clients, and projects slices
+  whitelist: ['auth', 'employee', 'organizationLocation', 'clients', 'projects', 'attendance'], // Persist auth, employee, location, clients, projects, and attendance slices
 };
 
 // Combine reducers
@@ -29,7 +30,7 @@ const rootReducer = combineReducers({
   organizationLocation: organizationLocationReducer,
   clients: clientsReducer,
   projects: projectsReducer,
-  [AttendenceAPI.reducerPath]: AttendenceAPI.reducer,
+  attendance: attendanceReducer,
 });
 
 // Create persisted reducer
@@ -42,7 +43,7 @@ const globalStore = configureStore({
       serializableCheck: {
         ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
       },
-    }).concat(AttendenceAPI.middleware),
+    }),
 });
 
 export const persistor = persistStore(globalStore);

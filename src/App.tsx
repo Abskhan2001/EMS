@@ -17,6 +17,7 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import { Provider } from 'react-redux';
 import Attendance from './pages/Attendance';
+import AttendanceNew from './pages/AttendanceNew';
 import Leave from './pages/Leave';
 import Tasks from './pages/Tasks';
 import AdminPage from './pages/AdminPage';
@@ -447,6 +448,7 @@ function AppContent() {
                   }
                 />
                 <Route path="attendance" element={<Attendance />} />
+                <Route path="attendance-new" element={<AttendanceNew />} />
                 <Route path="leave" element={<Leave />} />
                 <Route path="tasks" element={<Tasks />} />
                 <Route

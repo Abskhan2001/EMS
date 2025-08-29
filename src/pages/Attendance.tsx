@@ -12,8 +12,19 @@ import {
   endOfMonth,
   isToday,
 } from 'date-fns';
-import { useAuthStore, useAttendanceStore } from '../lib/store';
+
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../store';
+import {
+  setCheckIn,
+  setBreakTime,
+  setWorkMode,
+  setIsCheckedIn,
+  setIsOnBreak,
+} from '../slices/attendanceSlice';
+import { fetchOrganizationLocation } from '../slices/organizationLocationSlice';
 import { supabase, withRetry, handleSupabaseError } from '../lib/supabase';
+import { attendanceService, attendanceWorkflowService } from '../services/userService';
 import timeImage from './../assets/Time.png';
 import teaImage from './../assets/Tea.png';
 import {
@@ -102,70 +113,79 @@ const calculateDistance = (
 };
 
 const Attendance: React.FC = () => {
-  const user = useAuthStore((state) => state.user);
-  const initializeUser = useAuthStore((state) => state.initializeUser);
+  const dispatch = useDispatch<AppDispatch>();
+  const user = useSelector((state: RootState) => state.auth.user);
   const { userProfile } = useUser();
+  // Mirror Redux user id into localStorage for legacy code paths
+  useEffect(() => {
+    const reduxUserId = user?.id;
+    if (reduxUserId && !localStorage.getItem('user_id')) {
+      localStorage.setItem('user_id', reduxUserId);
+    }
+  }, [user?.id]);
+
   const [officeLocation, setOfficeLocation] = useState({
     latitude: 0,
     longitude: 0,
   });
-  const [isLocationLoading, setIsLocationLoading] = useState(true);
+  const [isLocationLoading, setIsLocationLoading] = useState(false); // Start as false, will be set by Redux
 
   // Add modal states
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
-  useEffect(() => {
-    initializeUser();
-  }, [initializeUser]);
 
-  // Fetch office location from the database
-  useEffect(() => {
-    const fetchOfficeLocation = async () => {
-      if (!userProfile?.organization_id) return;
 
-      setIsLocationLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('Location')
-          .select('latitude, longitude')
-          .eq('organization_id', userProfile.organization_id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching office location:', error);
-          return;
-        }
-
-        if (data) {
-          console.warn('office fetched successfully', data);
-          setOfficeLocation({
-            latitude: Number(data.latitude),
-            longitude: Number(data.longitude),
-          });
-        }
-      } catch (err) {
-        console.error('Error fetching office location:', err);
-      } finally {
-        setIsLocationLoading(false);
-      }
-    };
-
-    fetchOfficeLocation();
-  }, [userProfile?.organization_id]);
-
+  // Redux state
   const {
     isCheckedIn,
     checkInTime,
     isOnBreak,
     breakStartTime,
     workMode,
-    setCheckIn,
-    setBreakTime,
-    setWorkMode,
-    setIsCheckedIn,
-    setIsOnBreak,
-  } = useAttendanceStore();
+  } = useSelector((state: RootState) => state.attendance);
+
+  // Organization location from Redux (with safe access)
+  const organizationLocationState = useSelector((state: RootState) => {
+    try {
+      return state?.organizationLocation || { location: null, isLoading: false, error: null };
+    } catch (error) {
+      console.error('Error accessing organizationLocation state:', error);
+      return { location: null, isLoading: false, error: null };
+    }
+  });
+  const organizationLocation = organizationLocationState.location || null;
+  const orgLocationLoading = organizationLocationState.isLoading || false;
+
+  // Fetch organization location using Redux
+  useEffect(() => {
+    console.log('🔄 Fetching organization location...');
+    dispatch(fetchOrganizationLocation());
+  }, [dispatch]);
+
+  // Update local office location when Redux location changes
+  useEffect(() => {
+    console.log('📍 Organization location changed:', organizationLocation);
+    console.log('⏳ Organization loading state:', orgLocationLoading);
+
+    if (organizationLocation && organizationLocation.coordinates) {
+      console.log('✅ Setting office location from Redux');
+      setOfficeLocation({
+        latitude: organizationLocation.coordinates.latitude,
+        longitude: organizationLocation.coordinates.longitude,
+      });
+      setIsLocationLoading(false);
+    } else if (!orgLocationLoading) {
+      // If not loading and no location, set loading to false to prevent infinite loading
+      console.log('❌ No organization location found');
+      setIsLocationLoading(false);
+    } else {
+      console.log('⏳ Still loading organization location...');
+      setIsLocationLoading(orgLocationLoading);
+    }
+  }, [organizationLocation, orgLocationLoading]);
+
+
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,21 +214,7 @@ const Attendance: React.FC = () => {
   };
 
   const handleApplyTasks = async (tasks: string, selectedTaskIds: string[], projectId: string) => {
-    // Save to daily check-in tasks with task IDs
-    const { data: checkintask, error } = await supabase
-      .from('daily check_in task')
-      .insert({
-        content: tasks,
-        user_id: userProfile?.id,
-        task_ids: selectedTaskIds, // Array of selected task IDs
-        project_id: projectId // Selected project ID
-      });
-
-    if (error) {
-      console.error(error);
-    }
-    console.log(checkintask);
-
+    // Close modal and proceed with backend-driven check-in workflow
     setIsTaskModalOpen(false);
 
     try {
@@ -355,9 +361,9 @@ const Attendance: React.FC = () => {
       }
 
       // 9. Update state with attendance data
-      setIsCheckedIn(true);
-      setCheckIn(attendanceData.check_in);
-      setWorkMode(workMode);
+      dispatch(setIsCheckedIn(true));
+      dispatch(setCheckIn(attendanceData.check_in));
+      dispatch(setWorkMode(workMode));
       setAttendanceId(attendanceData.id);
 
       // 10. Reload attendance records
@@ -559,16 +565,16 @@ const Attendance: React.FC = () => {
           if (activeSession) {
             // User has an active session - allow check-out only
             console.log('✅ Found active session - allowing check-out:', activeSession);
-            setIsCheckedIn(true);
+            dispatch(setIsCheckedIn(true));
             setAttendanceId(activeSession.id);
-            setCheckIn(activeSession.check_in);
+            dispatch(setCheckIn(activeSession.check_in));
             setalreadycheckedin(false); // Allow check-out
           } else {
             // User has completed 1 check-in for the day - BLOCK ALL FURTHER CHECK-INS
             console.log('🚫 DAILY LIMIT REACHED: User has completed 1 check-in');
-            setIsCheckedIn(false);
+            dispatch(setIsCheckedIn(false));
             setAttendanceId(null);
-            setCheckIn(null);
+            dispatch(setCheckIn(null));
             setalreadycheckedin(true); // BLOCK further check-ins
           }
         } else {
@@ -578,16 +584,16 @@ const Attendance: React.FC = () => {
           if (activeSession) {
             // User has an active session
             console.log('✅ Found active session:', activeSession);
-            setIsCheckedIn(true);
+            dispatch(setIsCheckedIn(true));
             setAttendanceId(activeSession.id);
-            setCheckIn(activeSession.check_in);
+            dispatch(setCheckIn(activeSession.check_in));
             setalreadycheckedin(false);
           } else {
             // No active session and under limit - allow check-in
             console.log(`✅ User can check in (${totalCheckInsToday}/1 check-ins used)`);
-            setIsCheckedIn(false);
+            dispatch(setIsCheckedIn(false));
             setAttendanceId(null);
-            setCheckIn(null);
+            dispatch(setCheckIn(null));
             setalreadycheckedin(false); // Allow check-in
           }
         }
@@ -647,13 +653,13 @@ const Attendance: React.FC = () => {
 
         if (activeSession) {
           // User has an active session
-          setIsCheckedIn(true);
+          dispatch(setIsCheckedIn(true));
           setAttendanceId(activeSession.id);
           setCheckIn(activeSession.check_in);
           setalreadycheckedin(false); // Allow check-out
         } else {
           // User has completed 1 check-in for the day
-          setIsCheckedIn(false);
+          dispatch(setIsCheckedIn(false));
           setAttendanceId(null);
           setCheckIn(null);
           setalreadycheckedin(true); // Prevent further check-ins
@@ -664,12 +670,12 @@ const Attendance: React.FC = () => {
 
         if (activeSession) {
           // User has an active session
-          setIsCheckedIn(true);
+          dispatch(setIsCheckedIn(true));
           setAttendanceId(activeSession.id);
           setCheckIn(activeSession.check_in);
         } else {
           // No active session and under limit - allow check-in
-          setIsCheckedIn(false);
+          dispatch(setIsCheckedIn(false));
           setAttendanceId(null);
           setCheckIn(null);
           setalreadycheckedin(false); // Allow check-in
@@ -682,24 +688,19 @@ const Attendance: React.FC = () => {
 
   // Checking Today Leave For the User , If the User is Leave For Today , then Disable Its Checkin Button
   const checkAbsenteeStatus = async () => {
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
-
-    const { data, error } = await supabase
-      .from('absentees')
-      .select('absentee_type, absentee_date')
-      .eq('user_id', localStorage.getItem('user_id'))
-      .eq('absentee_type', 'leave')
-      .eq('absentee_date', today);
-
-    if (error) {
-      console.error('Error fetching absentee data:', error);
-      return;
-    }
-
-    // If there's at least one record, disable the button
-    if (data?.length > 0) {
-      setIsDisabled(true);
+    try {
+      // Use your backend absentees endpoint instead of Supabase
+      const today = new Date().toISOString().split('T')[0];
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api/v1'}/absentees?userId=${localStorage.getItem('user_id')}&startDate=${today}T00:00:00.000Z&endDate=${today}T23:59:59.000Z`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
+      });
+      if (!response.ok) return;
+      const result = await response.json();
+      if (Array.isArray(result?.data) && result.data.length > 0) {
+        setIsDisabled(true);
+      }
+    } catch (e) {
+      console.error('Error fetching absentee data:', e);
     }
   };
 
@@ -903,7 +904,11 @@ const Attendance: React.FC = () => {
 
   //Handle Check in
   const handleCheckIn = async () => {
-    if (!user) {
+    const fallbackUser = (() => {
+      try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+    })();
+    const effectiveUser = user || fallbackUser;
+    if (!effectiveUser) {
       setError('User not authenticated');
       return;
     }
@@ -914,20 +919,8 @@ const Attendance: React.FC = () => {
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
 
-      const { data: todayRecords, error: checkError } = await supabase
-        .from('attendance_logs')
-        .select('id')
-        .eq('user_id', localStorage.getItem('user_id'))
-        .gte('check_in', startOfDay.toISOString())
-        .lte('check_in', endOfDay.toISOString());
-
-      if (checkError) {
-        console.error('Error checking daily limit:', checkError);
-        setError('Failed to verify daily limit');
-        return;
-      }
-
-      const totalCheckInsToday = todayRecords?.length || 0;
+      const current = await attendanceService.getCurrentAttendance();
+      const totalCheckInsToday = current.attendance ? 1 : 0;
       console.log(`🔍 DOUBLE CHECK: User has ${totalCheckInsToday} check-ins today`);
 
       if (totalCheckInsToday >= 1) {
@@ -986,22 +979,12 @@ const Attendance: React.FC = () => {
         }
       }
 
-      // Insert attendance record
-      const { data, error: dbError } = await supabase
-        .from('attendance_logs')
-        .insert([
-          {
-            user_id: localStorage.getItem('user_id'),
-            work_mode: workMode,
-            latitude,
-            longitude,
-            status,
-          },
-        ])
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
+      // Perform check-in via backend service (no Supabase)
+      const result = await attendanceWorkflowService.performCheckIn();
+      const data = {
+        id: result.attendance._id,
+        check_in: result.attendance.checkIn,
+      };
 
       // IMPROVED: Create empty entry in tasks_of_projects for today
       const today = new Date().toISOString().split('T')[0];
@@ -1047,11 +1030,10 @@ const Attendance: React.FC = () => {
         console.log('Task record already exists for today');
       }
 
-      setIsCheckedIn(true);
+      dispatch(setIsCheckedIn(true));
       setCheckIn(data.check_in);
       setWorkMode(workMode);
-      setAttendanceId(data.id);
-      await loadAttendanceRecords();
+      setAttendanceId(data.id); // backend _id
     } catch (err) {
       setError(handleSupabaseError(err));
     } finally {
@@ -1059,9 +1041,12 @@ const Attendance: React.FC = () => {
     }
   };
 
-  // Handle checkout button click - show modal first
+  // Handle checkout button click - confirm then proceed
   const handleCheckOutClick = () => {
-    setIsCheckoutModalOpen(true);
+    const confirmOut = window.confirm('Are you sure you want to check out?');
+    if (!confirmOut) return;
+    setIsCheckoutModalOpen(false);
+    processCheckout();
   };
 
   // Handle skip checkout - proceed without saving daily update
@@ -1083,20 +1068,8 @@ const Attendance: React.FC = () => {
 
       const now = new Date();
 
-      // First, end any ongoing breaks
+      // Backend checkout endpoint automatically ends active breaks
       if (isOnBreak) {
-        const { error: breakError } = await supabase
-          .from('breaks')
-          .update({
-            end_time: now.toISOString(),
-            status: 'on_time',
-            ending: 'auto',
-          })
-          .eq('attendance_id', attendanceId)
-          .is('end_time', null);
-
-        if (breakError) throw breakError;
-
         setIsOnBreak(false);
         setBreakTime(null);
       }
@@ -1105,24 +1078,15 @@ const Attendance: React.FC = () => {
       const today = new Date();
       const todayDate = today.toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
 
-      // 1️⃣ Check if there is already an attendance record for the user today
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from('attendance_logs')
-        .select('check_in, check_out, created_at')
-        .eq('user_id', localStorage.getItem('user_id'))
-        .filter('created_at', 'gte', `${todayDate}T00:00:00+00`) // Filter records from the start of today
-        .filter('created_at', 'lte', `${todayDate}T23:59:59+00`); // Filter records until the end of today
-
-      if (attendanceError) throw attendanceError;
-
-      // Check if there are any ACTIVE (unchecked-out) sessions
-      const activeSession = attendanceData?.find(record => record.check_out === null);
+      // Use backend current attendance to determine if there is an active session
+      const current = await attendanceService.getCurrentAttendance();
+      const activeSession = current.attendance && !current.attendance.checkOut;
 
       if (!activeSession) {
         console.log('No active session found - user is not checked in');
 
         // Reset UI state properly
-        setIsCheckedIn(false);
+        dispatch(setIsCheckedIn(false));
         setCheckIn(null);
         setWorkMode(null);
         setAttendanceId(null);
@@ -1136,42 +1100,25 @@ const Attendance: React.FC = () => {
 
       console.log('Found active session for checkout:', activeSession);
 
-      // Then update the attendance record with check-out time
-      const { error: dbError } = await supabase
-        .from('attendance_logs')
-        .update({
-          check_out: now.toISOString(),
-        })
-        .eq('id', attendanceId)
-        .is('check_out', null);
-
-      if (dbError) throw dbError;
+      // Call backend checkout API
+      const checkoutResult = await attendanceService.checkOut({ attendanceId, notes: undefined });
+      if (!checkoutResult?.success) {
+        throw new Error(checkoutResult?.message || 'Check-out failed');
+      }
 
       console.log('Successfully checked out. Resetting UI state.');
 
       // Reset all states
-      setIsCheckedIn(false);
+      dispatch(setIsCheckedIn(false));
       setCheckIn(null);
       setWorkMode(null);
       setAttendanceId(null);
       setalreadycheckedin(false); // Allow user to check in again
 
       console.log("Today's Date:", todayDate);
-      console.log('Attendance Data:', attendanceData);
 
-      // 2️⃣ Calculate total attendance duration (in hours)
-      const { data: checkInData, error: checkInError } = await supabase
-        .from('attendance_logs')
-        .select('check_in')
-        .eq('user_id', localStorage.getItem('user_id'))
-        .filter('created_at', 'gte', `${todayDate}T00:00:00+00`) // Filter records from the start of today
-        .filter('created_at', 'lte', `${todayDate}T23:59:59+00`) // Filter records until the end of today
-        .limit(1)
-        .single();
-
-      if (checkInError) throw checkInError;
-
-      const checkInTime = new Date(checkInData.check_in);
+      // 2️⃣ Calculate total attendance duration (in hours) using backend response
+      const checkInTime = new Date(current.attendance.checkIn);
       const checkOutTime = new Date(now.toISOString());
 
       // Calculate total attendance duration (in hours)
@@ -1187,44 +1134,8 @@ const Attendance: React.FC = () => {
         return;
       }
 
-      // 3️⃣ Check if the user has a leave record for today
-      const { data: absenteeData, error: absenteeError } = await supabase
-        .from('absentees')
-        .select('id')
-        .eq('user_id', localStorage.getItem('user_id'))
-        .eq('absentee_date', todayDate);
-
-      if (absenteeError) {
-        console.error('Error checking absentee records:', absenteeError);
-        return;
-      }
-
-      // If a leave record exists, skip further actions
-      if (absenteeData?.length > 0) {
-        console.log('User is on leave today. No action needed.');
-        return;
-      }
-
-      // 4️⃣ If no leave record exists, mark as "Half-Day Absent"
-      const { error: insertError } = await supabase.from('absentees').insert([
-        {
-          user_id: localStorage.getItem('user_id'),
-          absentee_date: todayDate,
-          absentee_type: 'Absent',
-          absentee_Timing: 'Half Day',
-        },
-      ]);
-
-      if (insertError) {
-        console.error('Error inserting half-day absent record:', insertError);
-      } else {
-        console.log('Half-day absent record added successfully.');
-      }
-
-      // Reload attendance records to show the updated data
+      // Reload attendance records and refresh status using backend
       await loadAttendanceRecords();
-
-      // Refresh current attendance status to allow new check-in
       await refreshCurrentAttendanceStatus();
     } catch (err) {
       setError(handleSupabaseError(err));
@@ -1695,7 +1606,7 @@ const Attendance: React.FC = () => {
             >
               {loading
                 ? 'Checking in...'
-                : isLocationLoading
+                : (isLocationLoading || orgLocationLoading)
                   ? 'Loading location...'
                   : 'Check In'}
             </button>

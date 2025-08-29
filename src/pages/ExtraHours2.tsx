@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { format, parse, isAfter, isBefore, addMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { useAuthStore, useAttendanceStore } from '../lib/store';
+import { useAuthStore } from '../lib/store';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../store';
+import {
+  setRemoteCheckIn,
+  setRemoteBreakTime,
+  setRemoteWorkMode,
+  setIsRemoteCheckedIn,
+  setIsOnRemoteBreak,
+} from '../slices/attendanceSlice';
 import { supabase, withRetry, handleSupabaseError } from '../lib/supabase';
 import { Clock, Coffee, Calendar, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 
@@ -38,6 +47,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 const ExtraHours: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const user = useAuthStore((state) => state.user);
   const initializeUser = useAuthStore((state) => state.initializeUser);
   // console.log("User  id 1:" , user.user.id);
@@ -47,18 +57,14 @@ const ExtraHours: React.FC = () => {
   //   initializeUser();
   // }, [initializeUser]);
 
+  // Redux state
   const {
     isRemoteCheckedIn,
     RemotecheckInTime,
     isOnRemoteBreak,
     RemotebreakStartTime,
     RemoteworkMode,
-    setRemoteCheckIn,
-    setRemoteBreakTime,
-    setRemoteWorkMode,
-    setIsRemoteCheckedIn,
-    setIsOnRemoteBreak
-  } = useAttendanceStore();
+  } = useSelector((state: RootState) => state.attendance);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

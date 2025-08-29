@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { getLocation } from '../services/adminService';
+import { locationService } from '../services/userService';
 
 // Define the Location interface based on the backend model
 export interface OrganizationLocation {
@@ -30,13 +30,13 @@ export interface OrganizationLocation {
 
 interface OrganizationLocationState {
   location: OrganizationLocation | null;
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
 }
 
 const initialState: OrganizationLocationState = {
   location: null,
-  loading: false,
+  isLoading: false,
   error: null,
 };
 
@@ -76,7 +76,9 @@ export const fetchOrganizationLocation = createAsyncThunk(
         throw new Error('Organization ID not found in user data');
       }
 
-      const locationData = await getLocation();
+      console.log('🌐 Calling locationService.getOrganizationLocations()...');
+      const locationData = await locationService.getOrganizationLocations();
+      console.log('📍 Location data received:', locationData);
 
       // Transform the API response - it returns an array, we need the first item
       if (locationData && Array.isArray(locationData) && locationData.length > 0) {
@@ -133,16 +135,16 @@ const organizationLocationSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchOrganizationLocation.pending, (state) => {
-        state.loading = true;
+        state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchOrganizationLocation.fulfilled, (state, action) => {
-        state.loading = false;
+        state.isLoading = false;
         state.location = action.payload;
         state.error = null;
       })
       .addCase(fetchOrganizationLocation.rejected, (state, action) => {
-        state.loading = false;
+        state.isLoading = false;
         state.error = action.payload as string;
       });
   },
