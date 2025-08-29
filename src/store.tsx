@@ -12,12 +12,13 @@ import organizationLocationReducer from './slices/organizationLocationSlice';
 import clientsReducer from './slices/clientsSlice';
 import projectsReducer from './slices/projectsSlice';
 import attendanceReducer from './slices/attendanceSlice';
+import leaveReducer from './slices/leaveSlice';
 
 // Persist configuration
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['auth', 'employee', 'organizationLocation', 'clients', 'projects', 'attendance'], // Persist auth, employee, location, clients, projects, and attendance slices
+  whitelist: ['auth', 'employee', 'organizationLocation', 'clients', 'projects', 'attendance', 'leave'], // Persist auth, employee, location, clients, projects, attendance, and leave slices
 };
 
 // Combine reducers
@@ -31,6 +32,7 @@ const rootReducer = combineReducers({
   clients: clientsReducer,
   projects: projectsReducer,
   attendance: attendanceReducer,
+  leave: leaveReducer,
 });
 
 // Create persisted reducer
