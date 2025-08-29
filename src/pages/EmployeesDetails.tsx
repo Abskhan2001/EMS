@@ -814,7 +814,7 @@ const EmployeesDetails = () => {
                                   return (
                                     <tr>
                                       <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                                        {employeesArray.length === 0 ? 'No employees found' : 'No employees match your search'}
+                                        {employeesArray?.length === 0 ? 'No employees found' : 'No employees match your search'}
                                       </td>
                                     </tr>
                                   );

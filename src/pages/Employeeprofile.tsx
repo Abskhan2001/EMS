@@ -378,7 +378,7 @@ const Employeeprofile = ({
         .select("start_time, end_time, attendance_id")
         .in(
           "attendance_id",
-          attendanceData.length > 0 ? attendanceData.map((a) => a.id) : [""]
+          attendanceData?.length > 0 ? attendanceData?.map((a) => a.id) : [""]
         );
 
       if (breakError) {
@@ -400,7 +400,7 @@ const Employeeprofile = ({
 
       // Group attendance by day (taking the earliest record for each day), just like in ListViewOfEmployees.tsx
       const attendanceByDate = {};
-      attendanceData.forEach((log) => {
+      attendanceData?.forEach((log) => {
         const date = new Date(log.check_in).toISOString().split("T")[0]; // Format: YYYY-MM-DD
         if (
           !attendanceByDate[date] ||
@@ -413,7 +413,7 @@ const Employeeprofile = ({
       // Convert to array of unique attendance records (one per day)
       const uniqueAttendance = Object.values(attendanceByDate);
       console.log(
-        `Grouped ${attendanceData.length} attendance records into ${uniqueAttendance.length} unique days`
+        `Grouped ${attendanceData?.length} attendance records into ${uniqueAttendance?.length} unique days`
       );
 
       // Calculate total working hours and break hours separately
@@ -541,7 +541,7 @@ const Employeeprofile = ({
         .select("start_time, end_time, Remote_Id")
         .in(
           "Remote_Id",
-          extrahoursData.length > 0 ? extrahoursData.map((a) => a.id) : [""]
+          extrahoursData?.length > 0 ? extrahoursData?.map((a) => a.id) : [""]
         );
 
       if (remoteBreakError) {
@@ -560,7 +560,7 @@ const Employeeprofile = ({
 
       // Calculate total overtime hours
       let totalOvertimeHours = 0;
-      extrahoursData.forEach((log) => {
+      extrahoursData?.forEach((log) => {
         if (log.check_in && log.check_out) {
           const checkIn = new Date(log.check_in);
           const checkOut = new Date(log.check_out);
@@ -602,10 +602,10 @@ const Employeeprofile = ({
         throw absenteeError;
       }
 
-      const totalAbsents = absenteeData.filter(
+      const totalAbsents = absenteeData?.filter(
         (a) => a.absentee_type === "Absent"
       ).length;
-      const totalLeaves = absenteeData.filter(
+      const totalLeaves = absenteeData?.filter(
         (a) => a.absentee_type === "leave"
       ).length;
 
@@ -700,7 +700,7 @@ const Employeeprofile = ({
 
       // Update the monthly data state
       setMonthlyData({
-        totalAttendance: attendanceData.length,
+        totalAttendance: attendanceData?.length,
         totalAbsents,
         totalLeaves,
         totalWorkingHours: totalWorkHours.toFixed(2),
@@ -713,7 +713,7 @@ const Employeeprofile = ({
       });
 
       console.log("Monthly data updated:", {
-        totalAttendance: attendanceData.length,
+        totalAttendance: attendanceData?.length,
         totalAbsents,
         totalLeaves,
         totalWorkingHours: totalWorkHours.toFixed(2),
@@ -963,7 +963,7 @@ const Employeeprofile = ({
         .select("start_time, end_time, attendance_id")
         .in(
           "attendance_id",
-          attendanceData.map((a) => a.id)
+          attendanceData?.map((a) => a.id)
         );
 
       if (breakError) throw breakError;
@@ -981,7 +981,7 @@ const Employeeprofile = ({
 
       let totalWorkHours = 0;
 
-      attendanceData.forEach((log) => {
+      attendanceData?.forEach((log) => {
         const checkIn = new Date(log.check_in);
         const checkOut = log.check_out
           ? new Date(log.check_out)
@@ -1008,7 +1008,7 @@ const Employeeprofile = ({
         totalWorkHours += Math.max(0, hoursWorked - breakHours);
       });
 
-      const totalAttendance = attendanceData.length;
+      const totalAttendance = attendanceData?.length;
 
       // Fetch overtime hours from extrahours table
       const { data: extrahoursData, error: extrahoursError } = await supabase
@@ -1027,7 +1027,7 @@ const Employeeprofile = ({
         .select("start_time, end_time, Remote_Id")
         .in(
           "Remote_Id",
-          extrahoursData.map((a) => a.id)
+          extrahoursData?.map((a) => a.id)
         );
 
       if (remoteBreakError) {
@@ -1050,7 +1050,7 @@ const Employeeprofile = ({
       // Calculate total overtime hours
       let totalOvertimeHours = 0;
 
-      extrahoursData.forEach((log) => {
+      extrahoursData?.forEach((log) => {
         if (log.check_in && log.check_out) {
           const checkIn = new Date(log.check_in);
           const checkOut = new Date(log.check_out);
@@ -1084,10 +1084,10 @@ const Employeeprofile = ({
 
       if (absenteeError) throw absenteeError;
 
-      const totalAbsents = absenteeData.filter(
+      const totalAbsents = absenteeData?.filter(
         (a) => a.absentee_type === "Absent"
       ).length;
-      const totalLeaves = absenteeData.filter(
+      const totalLeaves = absenteeData?.filter(
         (a) => a.absentee_type === "leave"
       ).length;
 
@@ -1263,7 +1263,7 @@ const Employeeprofile = ({
   //     const { data: breakData, error: breakError } = await supabase
   //       .from("breaks")
   //       .select("start_time, end_time, attendance_id")
-  //       .in("attendance_id", attendanceData.map(a => a.id));
+  //       .in("attendance_id", attendanceData?.map(a => a.id));
 
   //     if (breakError) throw breakError;
 
@@ -1276,7 +1276,7 @@ const Employeeprofile = ({
 
   //     let totalWorkHours = 0;
 
-  //     attendanceData.forEach(log => {
+  //     attendanceData?.forEach(log => {
   //       const checkIn = new Date(log.check_in);
   //       const checkOut = log.check_out ? new Date(log.check_out) : new Date(checkIn.getTime()); // fallback to check_in time
 
@@ -1295,7 +1295,7 @@ const Employeeprofile = ({
   //       totalWorkHours += Math.max(0, hoursWorked - breakHours);
   //     });
 
-  //     const totalAttendance = attendanceData.length;
+  //     const totalAttendance = attendanceData?.length;
 
   //     // Fetch overtime hours from extrahours table
   //     const { data: extrahoursData, error: extrahoursError } = await supabase
@@ -1312,7 +1312,7 @@ const Employeeprofile = ({
   //     const { data: remoteBreakData, error: remoteBreakError } = await supabase
   //       .from("Remote_Breaks")
   //       .select("start_time, end_time, Remote_Id")
-  //       .in("Remote_Id", extrahoursData.map(a => a.id));
+  //       .in("Remote_Id", extrahoursData?.map(a => a.id));
 
   //     if (remoteBreakError) {
   //       console.error("Error fetching remote breaks:", remoteBreakError);
@@ -1330,7 +1330,7 @@ const Employeeprofile = ({
   //     // Calculate total overtime hours
   //     let totalOvertimeHours = 0;
 
-  //     extrahoursData.forEach(log => {
+  //     extrahoursData?.forEach(log => {
   //       if (log.check_in && log.check_out) {
   //         const checkIn = new Date(log.check_in);
   //         const checkOut = new Date(log.check_out);
@@ -1362,8 +1362,8 @@ const Employeeprofile = ({
 
   //     if (absenteeError) throw absenteeError;
 
-  //     const totalAbsents = absenteeData.filter(a => a.absentee_type === "Absent").length;
-  //     const totalLeaves = absenteeData.filter(a => a.absentee_type === "leave").length;
+  //     const totalAbsents = absenteeData?.filter(a => a.absentee_type === "Absent").length;
+  //     const totalLeaves = absenteeData?.filter(a => a.absentee_type === "leave").length;
 
   //     const employeeProjects = projectsData.filter(project =>
   //       project.devops?.some((dev: any) => dev.id === userData.id)

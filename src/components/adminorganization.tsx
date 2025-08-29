@@ -7,8 +7,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useUser } from '../contexts/UserContext';
 import { getLocation, setLocation, updateLocation } from '../services/adminService';
 import {
-  fetchOrganizationLocation,
-  setLocation as setLocationInStore
+    fetchOrganizationLocation,
+    setLocation as setLocationInStore
 } from '../slices/organizationLocationSlice';
 import { RootState, AppDispatch } from '../store';
 import Swal from 'sweetalert2';
@@ -16,6 +16,10 @@ import Swal from 'sweetalert2';
 const AdminOrganization: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const { location: organizationLocation, loading: locationLoading } = useSelector((state: RootState) => state.organizationLocation);
+    const employeeState = useSelector((state: RootState) => state.employee.employees);
+    const projectsState = useSelector((state: RootState) => state.projects.projects);
+    const clientsState = useSelector((state: RootState) => state.clients.clients);
+    console.log("organizationLocation : ", organizationLocation);
 
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -54,6 +58,8 @@ const AdminOrganization: React.FC = () => {
                         radius: locationInfo.radius?.toString() || '',
                         id: locationInfo._id || locationInfo.id
                     });
+                    console.log("locationData fdhsj : ",data);
+                    setOrganizationData(data);
                 } else {
                     setLocationExists(false);
                     setLocationData(null);
@@ -295,27 +301,29 @@ const AdminOrganization: React.FC = () => {
                 {organizationData && (
                     <div className="bg-gray-50 p-6 rounded-lg mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Organization Information</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Name</p>
-                                <p className="text-base text-gray-900">{organizationData.name || 'N/A'}</p>
+                                <p className="text-base text-gray-900">{organizationData[0]?.organizationId?.organizationName || 'N/A'}</p>
                             </div>
-                            <div>
+                            {/* <div>
                                 <p className="text-sm font-medium text-gray-500">Slug</p>
                                 <p className="text-base text-gray-900">{organizationData.slug || 'N/A'}</p>
-                            </div>
+                            </div> */}
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Status</p>
                                 <p className="text-base text-gray-900">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${organizationData.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                        {organizationData.is_active ? 'Active' : 'Inactive'}
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${organizationData[0]?.organizationId?.status == 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                        {organizationData[0]?.organizationId?.status == 'active' ? 'Active' : 'Inactive'}
                                     </span>
                                 </p>
+
+
                             </div>
-                        </div>
                         <div className="mt-4">
                             <p className="text-sm font-medium text-gray-500">Description</p>
-                            <p className="text-base text-gray-900">{organizationData.description || 'No description available'}</p>
+                            <p className="text-base text-gray-900">{organizationData[0]?.organizationId?.description || 'No description available'}</p>
+                        </div>
                         </div>
                     </div>
                 )}
@@ -328,7 +336,7 @@ const AdminOrganization: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Total Member</p>
-                                <p className="text-2xl font-bold text-gray-900">{userCount}</p>
+                                <p className="text-2xl font-bold text-gray-900">{employeeState?.length}</p>
                             </div>
                         </div>
                     </div>
@@ -341,7 +349,7 @@ const AdminOrganization: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Total Projects</p>
-                                <p className="text-2xl font-bold text-gray-900">{projectCount}</p>
+                                <p className="text-2xl font-bold text-gray-900">{projectsState?.length}</p>
                             </div>
                         </div>
                     </div>
@@ -353,7 +361,7 @@ const AdminOrganization: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Total Clients</p>
-                                <p className="text-2xl font-bold text-gray-900">{clientCount}</p>
+                                <p className="text-2xl font-bold text-gray-900">{clientsState?.length}</p>
                             </div>
                         </div>
                     </div>
@@ -361,7 +369,7 @@ const AdminOrganization: React.FC = () => {
             </div>
 
             <Transition appear show={isOpen} as={Fragment}>
-                <Dialog as="div" className="relative z-10" onClose={() => {}} static>
+                <Dialog as="div" className="relative z-10" onClose={() => { }} static>
                     <Transition.Child
                         as={Fragment}
                         enter="ease-out duration-300"
